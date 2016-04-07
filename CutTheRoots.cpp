@@ -76,18 +76,20 @@ class Problem{
 public:
 	vector<Tree> trees;
 	Problem(int NP,vector<int> points,vector<int> roots){
+		int n = points.size() / 2;
 		
 		map<P,vector<P>> graph;
-		map<int,P> id_to_pos;		
-		for(int i = 0 ; i < points.size() ; i += 2 )
-			id_to_pos[i/2] = P(points[i],points[i+1]);
+		map<int,P> id_to_pos;	
+		for(int i = 0 ; i < n ; i++)
+			id_to_pos[i] = P(points[2*i],points[2*i+1]);
+		
 		vector<vector<int>> g(id_to_pos.size());
 		for(int i = 0 ; i < roots.size() ; i += 2 ){
 			g[roots[i]].push_back(roots[i+1]);
 			g[roots[i+1]].push_back(roots[i]);
 		}
-		vector<bool> done(id_to_pos.size(),false);
-		for(int root = 0 ; root < points.size() ; root++){
+		vector<bool> done(n,false);
+		for(int root = 0 ; root < n ; root++){
 			if( !done[root] ){
 				map<int,int> relabel;
 				vector<Edge> es;
@@ -95,7 +97,7 @@ public:
 				vector<P> position(relabel.size());
 				for( auto r : relabel )
 					position[r.second] = id_to_pos[r.first];
-				trees.push_back(Tree(points.size(),es,position,root));
+				trees.push_back(Tree(points.size(),es,position,0));
 			}
 		}
 		assert( trees.size() == NP );
@@ -106,7 +108,6 @@ private:
 		done[x] = true;
 		int k = relabel.size();
 		relabel[x] = k;
-		cout << x << " " << relabel[x] << "|" << relabel.size() << " " << es.size() << endl;
 		for( auto to : g[x] ){
 			if( !done[to] ){
 				inner_listup_component(to,g,done,relabel,es);
@@ -160,8 +161,9 @@ public:
 	
     vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
 		Problem problem(NP,points,roots);
-
-		cout << NP << endl;
+		for( auto tree : problem.trees ){
+			cout << tree.position[tree.root] << endl;
+		}
         // first NP points give coordinates of the bases of the plants, written as x, y
         // get x-coordinates of the bases, sort them, make cuts along y-axis to separate x-coordinates
         vector<int> xs(NP);
