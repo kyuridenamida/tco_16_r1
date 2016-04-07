@@ -7,7 +7,7 @@ using namespace std;
 static const double EPS = 1e-10;
 const double INF = 1e12;
 const double PI = acos(-1);
-#define REP(i, n) for ( int i = 0; i < (n); i++ ) 
+#define REP(i, n) for ( int i = 0; i < (n); i++ )
 
 typedef complex<double> P;
 typedef vector<P> G;
@@ -69,7 +69,7 @@ P projection(const L &l, const P &p) {
 }
 // 直線に対称な点
 P reflection(const L &l, const P &p) {
-	return p + 2.0 * (projection(l, p) - p);
+	return p + (double)2.0 * (projection(l, p) - p);
 }
 
 double distanceLP(const L &l, const P &p) {
@@ -119,10 +119,10 @@ int contains(const G& polygon, const P& p) {
 // 点-多角形包含判定(凸じゃないといけない) O(log n)
 int convex_contains(const G &polygon, const P &p) {
   const int n = polygon.size();
-  P g = (polygon[0] + polygon[n/3] + polygon[2*n/3]) / 3.0; // inner-point
+  P g = (polygon[0] + polygon[n/3] + polygon[2*n/3]) / (double)3.0; // inner-point
   int a = 0, b = n;
   while (a+1 < b) { // invariant: c is in fan g-P[a]-P[b]
-    int c = (a + b) / 2;
+    int c = (a + b) / (double)2;
     if (cross(polygon[a]-g, polygon[c]-g) > 0) { // angle < 180 deg
       if (cross(polygon[a]-g, p-g) > 0 && cross(polygon[c]-g, p-g) < 0) b = c;
       else a = c;
@@ -246,156 +246,4 @@ vector<P> crosspointCL(const L l, const C c){
 	ret.push_back(p-S*e);
 	return ret;
 }
- 
-// 外接円の中心を求める。
-P getCircumcenter(P a,P b,P c){
-	double A1 = 2 * ( b.real() - a.real() );
-	double B1 = 2 * ( b.imag() - a.imag() );
-	double C1 = pow(a.real(),2)-pow(b.real(),2) + pow(a.imag(),2)-pow(b.imag(),2);
-	double A2 = 2 * ( c.real() - a.real() );
-	double B2 = 2 * ( c.imag() - a.imag() );
-	double C2 = pow(a.real(),2)-pow(c.real(),2) + pow(a.imag(),2)-pow(c.imag(),2);
-	double X = (B1 * C2 - B2 * C1) / (A1 * B2 - A2 * B1);
-	double Y = (C1 * A2 - C2 * A1) / (A1 * B2 - A2 * B1);
-	return P(X,Y);
-}
-//内接円に関する知識
-//・半径=2*面積/周長
-//・中心座標=3つの座標(xa,ya),(xb,yb),(xc,yc)について3辺の長さをa,b,cとおくと座標の重みつき平均値の和で求まる。
-//a/(a+b+c)*(xa,ya)+...
 
-// 凸多角形の切断。凸多角形をある直線で切断し，
-//その左側だけ残す．直線よりも左側にあるものと，交差するときはその交点を出力として吐いている．
-G convex_cut(const G& poly, const L& l) {
-  G Q;
-  for (int i = 0; i < poly.size(); ++i) {
-    P A = curr(poly, i), B = next(poly, i);
-    if (ccw(l[0], l[1], A) != -1) Q.push_back(A);
-    if (ccw(l[0], l[1], A)*ccw(l[0], l[1], B) < 0)
-      Q.push_back(crosspoint(L(A, B), l));
-  }
-  return Q;
-}
-// 最近点対
-pair<P,P> closestPair(vector<P> p) {
-  int n = p.size(), s = 0, t = 1, m = 2, S[n]; S[0] = 0, S[1] = 1;
-  sort(p.begin(),p.end()); // "p < q" <=> "p.x < q.x"
-  double d = norm(p[s]-p[t]);
-  for (int i = 2; i < n; S[m++] = i++) for(int j = 0 ; j < m ; j++) {
-    if (norm(p[S[j]]-p[i])<d) d = norm(p[s = S[j]]-p[t = i]);
-    if (real(p[S[j]]) < real(p[i]) - d) S[j--] = S[--m];
-  }
-  return make_pair( p[s], p[t] );
-}
-
-//ボロノイ図 正しく動いた on dxlib
-//全体の領域をRとする。
-//ボロノイ領域を求めたい点と、他の点に対して、垂直二等分線でRを切断し、注目点を含む方の領域を新たにRとする。
-//これを全ての点に対して繰り返し行えば、ボロノイ領域を得ることができる。
-//つまり、gは領域の多角形で、
-//voronoi_cellをs=全てのiに対して試せば多角形郡が構築される
-
-L bisector(P a, P b) {
-  P A = (a+b)*P(0.5,0);
-  return L(A, A+(b-a)*P(0, PI/2));
-}
-G voronoi_cell(G g, vector<P> v, int s) {
-  for(int i = 0 ; i < v.size() ; i++){
-    if (i!=s)
-      g = convex_cut(g, bisector(v[s], v[i]));
-  }
-  return g;
-}
-
-//共通接線　正しく動いた。on dxlib
-//半径0とすれば接線を求めるのに使えることを確認。
-bool eq(double a,double b){
-	return fabs(a-b) < 1e-9;
-}
-vector<L> contact(C p, C q){
-  vector<L> ret;
-  if(p.r < q.r) swap(p, q);
-  double d = abs(p.p - q.p);
-  P n = q.p - p.p;
-  n /= abs(n);
-
-  if(d + EPS < abs(p.r - q.r)){
-    ret.clear();
-  } else if(eq(d, abs(p.r - q.r))){
-    P t, u;
-    t = p.p + p.r * n;
-    u = t + n * P(0, 1);
-    ret.push_back(L(t, u));
-  } else {
-    if(!eq(p.r, q.r)){
-      P t = p.p + (p.r * d / (p.r - q.r)) * n;
-      long double theta = asin((p.r - q.r) / d);
-      P u = n * P(cos(theta), sin(theta));
-      P v = n * P(cos(-theta), sin(-theta));
-      u += t;
-      v += t;
-      ret.push_back(L(t, u));
-      ret.push_back(L(t, v));
-    } else {
-      P t = p.p + n * P(0, 1) * p.r;
-      P u = p.p - n * P(0, 1) * p.r;
-      ret.push_back(L(t, t+n));
-      ret.push_back(L(u, u+n));
-    }
-
-    if(eq(d, p.r + q.r)){
-      P t, u;
-      t = p.p + p.r * n;
-      u = t + n * P(0, 1);
-      ret.push_back(L(t, u));
-    } else if(d > p.r + q.r){
-      P t = p.p + (p.r * d / (p.r + q.r)) * n;
-      long double theta = asin((p.r + q.r) / d);
-      P u = n * P(cos(theta), sin(theta));
-      P v = n * P(cos(-theta), sin(-theta));
-      u += t;
-      v += t;
-      ret.push_back(L(t, u));
-      ret.push_back(L(t, v));
-    }
-  }
-  return ret;
-}
-//単純多角形の三角形分割 (耳分解) O(n)
-typedef vector<P> triangle;
-triangle make_triangle(const P& a, const P& b, const P& c) {
-  triangle ret(3);
-  ret[0] = a; ret[1] = b; ret[2] = c;
-  return ret;
-}
-bool triangle_contains(const triangle& tri, const P& p) {
-  return ccw(tri[0], tri[1], p) >= 0 &&
-         ccw(tri[1], tri[2], p) >= 0 &&
-         ccw(tri[2], tri[0], p) >= 0;
-}
-bool ear_Q(int i, int j, int k, const G& P) {
-  triangle tri = make_triangle(P[i], P[j], P[k]);
-  if (ccw(tri[0], tri[1], tri[2]) <= 0) return false;
-  for (int m = 0; m < P.size(); ++m)
-    if (m != i && m != j && m != k)
-      if (triangle_contains(tri, P[m]))
-        return false;
-  return true;
-}
-void triangulate(const G& P, vector<triangle>& t) {
-  const int n = P.size();
-  vector<int> l, r;
-  for (int i = 0; i < n; ++i) {
-    l.push_back( (i-1+n) % n );
-    r.push_back( (i+1+n) % n );
-  }
-  int i = n-1;
-  while (t.size() < n-2) {
-    i = r[i];
-    if (ear_Q(l[i], i, r[i], P)) {
-      t.push_back(make_triangle(P[l[i]], P[i], P[r[i]]));
-      l[ r[i] ] = l[i];
-      r[ l[i] ] = r[i];
-    }
-  }
-}

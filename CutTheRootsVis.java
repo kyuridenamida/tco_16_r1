@@ -225,7 +225,8 @@ public class CutTheRootsVis {
                 rootLen += totalLen;
             }
         }
-
+        // now, if all are valid, score is always non-0
+        System.out.println("Length of alive roots = " + rootLen);
         // check that all plants have been separated
         // yes, this is slow, find a faster way yourself, it is part of the challenge ;)
         for (int i1=0;i1<NP;i1++)
@@ -249,8 +250,7 @@ public class CutTheRootsVis {
                 }
             }
 
-        // now, if all are valid, score is always non-0
-        System.out.println("Length of alive roots = " + rootLen);
+
         double score = 1000000.0 * rootLen / rootsLength;
         return score;
     }

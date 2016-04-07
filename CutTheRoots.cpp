@@ -71,6 +71,16 @@ private:
 
 struct Answer{
 	vector<L> lines; 
+	vector<int> to_vector(){
+		vector<int> vs;
+		for( auto line : lines ){
+			vs.push_back(line[0].real()+0.5);
+			vs.push_back(line[0].imag()+0.5);
+			vs.push_back(line[1].real()+0.5);
+			vs.push_back(line[1].imag()+0.5);
+		}
+		return vs;
+	}
 };
 class Problem{
 public:
@@ -115,16 +125,17 @@ private:
 			}
 		}
 		
+		
 	
 	}
 };
 
 class NaiveScoring{
 public:
-	double score_of_tree(const Tree &tree,const Answer &answer){
+	static double score_of_tree(const Tree &tree,const Answer &answer){
 		return inner_dfs_score_of_tree(tree,answer,tree.root);
 	}
-	double overall_score(const Problem &problem,const Answer &answer){
+	static double overall_score(const Problem &problem,const Answer &answer){
 		double sum = 0;
 		for( const auto &tree : problem.trees ){
 			sum += score_of_tree(tree,answer);
@@ -132,19 +143,21 @@ public:
 		return sum;
 	}
 private:
-	double inner_dfs_score_of_tree(const Tree &tree,const Answer &answer,int x){
+	static double inner_dfs_score_of_tree(const Tree &tree,const Answer &answer,int x){
 		double sum = 0;
 		for( auto c : tree.child[x] ){
 			// ここ前計算で114514倍くらい速くなると思う
 			double cut_dist = INF;
 			for( const auto& line : answer.lines ){
+				//assert(!(intersectLP(line,tree.position[x]) and !intersectLP(line,tree.position[c])));
 				if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
 					P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
-					assert(abs(cp-tree.position[x]) > EPS and abs(cp-tree.position[c]) > EPS);
+					//assert(abs(cp-tree.position[x]) > EPS and abs(cp-tree.position[c]) > EPS);
 					cut_dist = min(cut_dist,abs(cp-tree.position[x]));
 				}
 			}
 			if( cut_dist != INF ){
+				cerr << cut_dist << " " << abs(tree.position[x]-tree.position[c]) << endl;
 				sum += cut_dist; 
 			}else{
 				sum += inner_dfs_score_of_tree(tree,answer,c);
@@ -156,30 +169,31 @@ private:
 
 };
 
+
 class CutTheRoots {
 public:
 	
     vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
+		//cout << intersectLS(L(P(0,0),P(100,0)),L(P(1,0),P(2,0))) << endl;
 		Problem problem(NP,points,roots);
 		for( auto tree : problem.trees ){
-			cout << tree.position[tree.root] << endl;
+			// cout << tree.position[tree.root] << endl;
 		}
+		cerr << NaiveScoring::overall_score(problem,{}) << endl;
         // first NP points give coordinates of the bases of the plants, written as x, y
         // get x-coordinates of the bases, sort them, make cuts along y-axis to separate x-coordinates
         vector<int> xs(NP);
         for (int i = 0; i < NP; ++i) {
             xs[i] = points[2 * i];
         }
+		Answer answer;
         sort(xs.begin(), xs.end());
-        vector<int> ret(4 * (NP - 1));
-        for (int i = 0; i < NP - 1; ++i) {
-            int x = (xs[i] + xs[i + 1]) / 2;
-            ret[4 * i] = x;
-            ret[4 * i + 1] = 1;
-            ret[4 * i + 2] = x;
-            ret[4 * i + 3] = 2;
+        for (int i = 0; i < 0; ++i) {
+            int x = 500;
+			answer.lines.push_back(L(P(x,1),P(x,2)));
         }
-        return ret;
+		cerr << NaiveScoring::overall_score(problem,answer) << endl;
+        return answer.to_vector();
     }
 };
 #ifdef LOCAL
