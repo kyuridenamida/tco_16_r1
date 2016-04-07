@@ -23,7 +23,7 @@ public:
 			}
 		}
 		sort(pairs.begin(),pairs.end());
-		for(int li = 0 ; li < pairs.size(); li++){
+		for(int li = 0 ; li < 2; li++){
 			int i = pairs[li].second.first;
 			int j = pairs[li].second.second;
 			P p1 = problem.trees[i].position[problem.trees[i].root];
@@ -42,11 +42,9 @@ public:
 				L l = L(mp,mp+vec);
 				// cerr << l[0] << " " << l[1] << " -> ";
 				L fix_l = GeomUtils::convert_to_integer_line(l,p1,p2);
-				if( GeomUtils::is_separating(fix_l,p1,p2) ){
-					answer.add_line(fix_l);
-				}else{
-					cerr << "oops" << endl;
-				}
+				assert(GeomUtils::is_separating(fix_l,p1,p2));
+				answer.add_line(fix_l);
+				
 				// cerr << fix_l[0] << " " << fix_l[1] << endl;
 			}
 		}
