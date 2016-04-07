@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 using namespace std;
-static const double EPS = 1e-10;
+static const double EPS = 1e-9;
 const double INF = 1e12;
 const double PI = acos(-1);
 #define REP(i, n) for ( int i = 0; i < (n); i++ )

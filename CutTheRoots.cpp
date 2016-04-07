@@ -71,6 +71,10 @@ private:
 
 struct Answer{
 	vector<L> lines; 
+	void add_line(const L &line){
+		lines.push_back(line);
+	}
+	
 	vector<int> to_vector(){
 		vector<int> vs;
 		for( auto line : lines ){
@@ -157,7 +161,7 @@ private:
 				}
 			}
 			if( cut_dist != INF ){
-				cerr << cut_dist << " " << abs(tree.position[x]-tree.position[c]) << endl;
+				// cerr << cut_dist << " " << abs(tree.position[x]-tree.position[c]) << endl;
 				sum += cut_dist; 
 			}else{
 				sum += inner_dfs_score_of_tree(tree,answer,c);
@@ -169,6 +173,60 @@ private:
 
 };
 
+class GeomUtils{
+public:
+	static bool is_separating(L l,P p1,P p2){
+		int r1 = ccw(l[0],l[1],p1);
+		int r2 = ccw(l[0],l[1],p2);
+		return abs(r1) == 1 && abs(r2) == 1 && r1 != r2;
+	}
+	static L convert_to_integer_line(L l){
+		// cout << l[1] << " " << l[0] << endl;
+		P vec = (l[1] - l[0]) / abs(l[1]-l[0]);
+		// cout << vec << endl;
+		if( abs(vec.real()) < EPS ) {
+			int x = (l[0].real()+0.5);
+			return L(P(x,0),P(x,1));
+		}
+		if( abs(vec.imag()) < EPS ){
+			int y = (l[0].imag()+0.5);
+			return L(P(0,y),P(1,y));
+		}
+		P vx = vec / vec.real();
+		//cout << vx << endl;
+		vector< pair<double,P> > ps;
+		for(int i = 0 ; i <= 1024 ; i++){
+			P t = l[0] + (i-l[0].real()) * vx;
+			if( -EPS <= t.real() && t.real() <= 1024 + EPS && 
+				-EPS <= t.imag() && t.imag() <= 1024 + EPS ){
+				int X = t.real() + 0.5;
+				int Y = t.imag() + 0.5;
+				ps.push_back({abs(t.real()-X)+abs(t.imag()-Y),P(X,Y)});
+			}
+		}
+		P vy = vec / vec.imag();
+		// cout << l[0] << " " << vy << endl;
+		for(int i = 0 ; i <= 1024 ; i++){
+			P t = l[0] + (i-l[0].imag()) * vy;
+			if( -EPS <= t.real() && t.real() <= 1024 + EPS && 
+				-EPS <= t.imag() && t.imag() <= 1024 + EPS ){
+				int X = t.real() + 0.5;
+				int Y = t.imag() + 0.5;
+				ps.push_back({abs(t.real()-X)+abs(t.imag()-Y),P(X,Y)});
+			}
+		}
+		sort(ps.begin(),ps.end());
+		for(int i = 1 ; i < ps.size() ; i++){
+			// cout << ps[i].second << "(" << vx << " " << " " << vy << endl;
+			if( abs(ps[i].second-ps[0].second) > EPS ){
+				//cout << ps[0].second << " " << ps[i].second << "|" << ps[i].first << endl;
+				return L(ps[0].second,ps[i].second);
+			}
+		}
+		assert(false and "ps!!");
+		
+	}
+};
 
 class CutTheRoots {
 public:
@@ -176,25 +234,52 @@ public:
     vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
 		//cout << intersectLS(L(P(0,0),P(100,0)),L(P(1,0),P(2,0))) << endl;
 		Problem problem(NP,points,roots);
-		for( auto tree : problem.trees ){
-			// cout << tree.position[tree.root] << endl;
-		}
-		cerr << NaiveScoring::overall_score(problem,{}) << endl;
-        // first NP points give coordinates of the bases of the plants, written as x, y
-        // get x-coordinates of the bases, sort them, make cuts along y-axis to separate x-coordinates
-        vector<int> xs(NP);
-        for (int i = 0; i < NP; ++i) {
-            xs[i] = points[2 * i];
-        }
-		Answer answer;
-        sort(xs.begin(), xs.end());
-        for (int i = 0; i < 0; ++i) {
-            int x = 500;
-			answer.lines.push_back(L(P(x,1),P(x,2)));
-        }
-		cerr << NaiveScoring::overall_score(problem,answer) << endl;
+		//cerr << NaiveScoring::overall_score(problem,{}) << endl;
+		
+		Answer answer = greedy1(problem);
         return answer.to_vector();
     }
+	Answer greedy1(const Problem &problem){
+		int N = problem.trees.size();
+		Answer answer;
+		vector<pair<double,pair<int,int>>> pairs;
+		for(int i = 0 ; i < N ; i++){
+			for(int j = i+1; j < N ; j++){
+				P p1 = problem.trees[i].position[problem.trees[i].root];
+				P p2 = problem.trees[j].position[problem.trees[j].root];
+				pairs.push_back({norm(p1-p2),{i,j}});
+			}
+		}
+		sort(pairs.begin(),pairs.end());
+		for(int li = 0 ; li < pairs.size(); li++){
+			int i = pairs[li].second.first;
+			int j = pairs[li].second.second;
+			P p1 = problem.trees[i].position[problem.trees[i].root];
+			P p2 = problem.trees[j].position[problem.trees[j].root];
+			bool separated = false;
+			for( auto l : answer.lines ){
+				if( GeomUtils::is_separating(l,p1,p2) ){
+					separated = true;
+					break;
+				}
+			}
+			
+			if( !separated ){
+				P mp = 0.5 * (p1 + p2);
+				P vec = (p1-p2) * P(0,1);
+				L l = L(mp,mp+vec);
+				// cerr << l[0] << " " << l[1] << " -> ";
+				L fix_l = GeomUtils::convert_to_integer_line(l);
+				if( GeomUtils::is_separating(fix_l,p1,p2) ){
+					answer.add_line(fix_l);
+				}else{
+					cerr << "oops" << endl;
+				}
+				// cerr << fix_l[0] << " " << fix_l[1] << endl;
+			}
+		}
+		return answer;
+	}
 };
 #ifdef LOCAL
 template<class T> void getVector(vector<T>& v) {
