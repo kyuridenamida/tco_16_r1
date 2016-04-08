@@ -144,6 +144,19 @@ public:
 		return vs;
 	}
 };
+
+class RGB{
+public:
+	int r,g,b;
+	RGB(int r=0,int g=0,int b=0) : r(r), g(g), b(b) {}
+	static RGB random(){
+		RGB res;
+		res.r = rand() % 256;
+		res.g = rand() % 256;
+		res.b = rand() % 256;
+		return res;
+	}
+};
 class ExtendedAnswer : public Answer{
 public:
 	vector<G> convex_polygon;
@@ -155,8 +168,29 @@ public:
 			convex_polygon.push_back(tree.convex_polygon);
 		}
 	}
+	void draw(const Problem &problem, vector<RGB> colors){
+		
+		cout << "C " << 0 << " " << 0 << " " << 0 << " " << 512 << " " << 512 << " " << 512 << endl;
+		for(int i = 0 ; i < convex_polygon.size() ; i++){
+			auto &g = convex_polygon[i];
+			if( g.size() >= 3 ){
+				cout << "G ";
+				cout << colors[i].r << " " << colors[i].g << " " << colors[i].b;
+				for( auto p : g ){
+					cout << " " << (int)(p.real()+0.5) << " " << (int)(p.imag()+0.5);
+				}
+				cout << endl;
+			}
+			cout << "C ";
+			cout << 255-colors[i].r << " " << 255-colors[i].g << " " << 255-colors[i].b;
+			cout << " " << (int)(problem.trees[i].position[0].real()+0.5) << " " << (int)(problem.trees[i].position[0].imag()+0.5) << " " << 2 << endl;
+		}
+		for( auto l : lines ){
+			cout << "L " << 255 << " " << 255 << " " << 255 << " " << (int)(l[0].real()+0.5) << " " << (int)(l[0].imag()+0.5) << " " << (int)(l[1].real()+0.5) << " " << (int)(l[1].imag()+0.5) << endl;
+		}
+		cout << "END" << endl;
+	}
 };
-
 
 class NaiveScoring{
 public:

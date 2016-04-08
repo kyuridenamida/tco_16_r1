@@ -6,12 +6,12 @@ from multiprocessing import Pool
 from multiprocessing import Process
 from multiprocessing import cpu_count
 
-if len(sys.argv) != 2:
+if len(sys.argv) < 2:
 	print(sys.argv[0], "[execfile]", file=sys.stderr)
 	sys.exit(-1)
-
+	
 execfile = sys.argv[1]
-
+visdir = sys.argv[2] if len(sys.argv) >= 3 else None
 
 def run_program(seed):
 	NP = NR = AVGR = -1
@@ -19,8 +19,14 @@ def run_program(seed):
 	score = 0.0
 	
 	try:
+		arg = ["java","CutTheRootsVis","-seed",str(seed),"-exec",execfile]
+		if visdir:
+			visfile = os.path.join(visdir,"%03d.png" % seed)
+			arg += ["-save",visfile]
+			os.makedirs(visdir, exist_ok=True)
+		
 		out_data = subprocess.check_output(
-			["java","CutTheRootsVis","-seed",str(seed),"-exec",execfile], timeout=10,stderr=subprocess.STDOUT
+			arg, timeout=1000,stderr=subprocess.STDOUT
 		)
 		out_data = out_data.decode('utf-8')
 		out_data = out_data.replace('\r\n','\n')
@@ -65,6 +71,5 @@ results = p.map(run_program, seeds)
 for res in results:
 	#print(",".join(map(str,res)))
 	print(",".join(map(str,res[5:])))
-
 
 

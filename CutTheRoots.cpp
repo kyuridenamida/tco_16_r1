@@ -1,5 +1,11 @@
 ﻿#include "classes_for_tco.cpp"
 
+struct Configuration{
+	bool visualize_mode;
+	Configuration(){
+		visualize_mode = false;
+	}
+} configuration;
 class CutTheRoots {
 public:
 	
@@ -12,9 +18,12 @@ public:
         return answer.to_vector();
     }
 	Answer greedy1(const Problem &problem){
+		vector<RGB> colors;
+		for(int i = 0 ; i < problem.trees.size() ; i++) colors.push_back(RGB::random());
 		int N = problem.trees.size();
 		ExtendedAnswer answer;
 		answer.init(problem);
+		if( configuration.visualize_mode ) answer.draw(problem,colors);
 		
 		vector<pair<double,pair<int,int>>> pairs;
 		for(int i = 0 ; i < N ; i++){
@@ -44,8 +53,8 @@ public:
 				double cur = NaiveScoring::overall_score_fast_nonline(problem,answer);
 				// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
 				vector<pair<double,ExtendedAnswer>> cand;
-				for(int k = 0 ; k < 69 ; k++){
-					P vec = (p1-p2) * exp(P(0,2*PI*k/69));
+				for(int k = 0 ; k < 19 ; k++){
+					P vec = (p1-p2) * exp(P(0,2*PI*k/19));
 					L l = L(mp,mp+vec);
 					L fix_l = GeomUtils::convert_to_integer_line(l,p1,p2);
 					if( fix_l[0] != P(-1,-1) and GeomUtils::is_separating(fix_l,p1,p2) ){						
@@ -58,10 +67,13 @@ public:
 					return a.first < b.first;
 					
 				});
+				
 				// answer.add_line(cand[0].second);
 				// cerr << answer.lines.size() << endl;	
 				answer = cand[0].second;
 				// cerr << fix_l[0] << " " << fix_l[1] << endl;
+				
+				if( configuration.visualize_mode ) answer.draw(problem,colors);
 			}
 		}
 		return answer;
@@ -74,7 +86,12 @@ template<class T> void getVector(vector<T>& v) {
 }
 
 
-int main() {
+
+int main(int argc,char *argv[]) {
+	if( argc >= 2 && string(argv[1]) == "-vis" ){
+		cerr << "visualize mode on" << endl;
+		configuration.visualize_mode = true;
+	}
     int NP;
     cin >> NP;
     int Npoints;
@@ -90,10 +107,12 @@ int main() {
     CutTheRoots cr;
     vector<int> ret = cr.makeCuts(NP, points, roots);
 	
-    cout << ret.size() << endl;
-    for (int i = 0; i < ret.size(); ++i) {
-        cout << ret[i] << endl;
-    }
-    cout.flush();
+	if( !configuration.visualize_mode ){
+		cout << ret.size() << endl;
+		for (int i = 0; i < ret.size(); ++i) {
+			cout << ret[i] << endl;
+		}
+		cout.flush();
+	}
 }
 #endif

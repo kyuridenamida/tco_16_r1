@@ -1,3 +1,4 @@
 *.exe
 seed/
 ~$statistics.xlsx
+*.png
