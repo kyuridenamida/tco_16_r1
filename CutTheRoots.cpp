@@ -13,7 +13,9 @@ public:
     }
 	Answer greedy1(const Problem &problem){
 		int N = problem.trees.size();
-		Answer answer;
+		ExtendedAnswer answer;
+		answer.init(problem);
+		
 		vector<pair<double,pair<int,int>>> pairs;
 		for(int i = 0 ; i < N ; i++){
 			for(int j = i+1; j < N ; j++){
@@ -23,7 +25,7 @@ public:
 			}
 		}
 		sort(pairs.begin(),pairs.end());
-		for(int li = 0 ; li < 2; li++){
+		for(int li = 0 ; li < pairs.size(); li++){
 			int i = pairs[li].second.first;
 			int j = pairs[li].second.second;
 			P p1 = problem.trees[i].position[problem.trees[i].root];
@@ -37,14 +39,28 @@ public:
 			}
 			
 			if( !separated ){
-				P mp = 0.5 * (p1 + p2);
-				P vec = (p1-p2) * P(0,1);
-				L l = L(mp,mp+vec);
-				// cerr << l[0] << " " << l[1] << " -> ";
-				L fix_l = GeomUtils::convert_to_integer_line(l,p1,p2);
-				assert(GeomUtils::is_separating(fix_l,p1,p2));
-				answer.add_line(fix_l);
 				
+				P mp = 0.5 * (p1 + p2);
+				double cur = NaiveScoring::overall_score_fast_nonline(problem,answer);
+				// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
+				vector<pair<double,ExtendedAnswer>> cand;
+				for(int k = 0 ; k < 69 ; k++){
+					P vec = (p1-p2) * exp(P(0,2*PI*k/69));
+					L l = L(mp,mp+vec);
+					L fix_l = GeomUtils::convert_to_integer_line(l,p1,p2);
+					if( fix_l[0] != P(-1,-1) and GeomUtils::is_separating(fix_l,p1,p2) ){						
+						ExtendedAnswer copied_answer = answer;
+						double loss = cur - NaiveScoring::overall_score_fast_differ_ver(problem,copied_answer,fix_l);
+						cand.push_back({loss,copied_answer});
+					}
+				}
+				sort(cand.begin(),cand.end(),[&](const pair<double,ExtendedAnswer> &a,const pair<double,ExtendedAnswer> &b){
+					return a.first < b.first;
+					
+				});
+				// answer.add_line(cand[0].second);
+				// cerr << answer.lines.size() << endl;	
+				answer = cand[0].second;
 				// cerr << fix_l[0] << " " << fix_l[1] << endl;
 			}
 		}

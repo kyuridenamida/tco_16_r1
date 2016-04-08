@@ -116,9 +116,22 @@ int contains(const G& polygon, const P& p) {
 	return in ? IN : OUT;
 }
 
+// !CAUTION! number は有理数以上
+G convex_cut(const G& p, const L& l) {
+  G Q;
+  for (int i = 0; i < p.size(); ++i) {
+    P A = curr(p, i), B = next(p, i);
+    if (ccw(l[0], l[1], A) != -1) Q.push_back(A);
+    if (ccw(l[0], l[1], A)*ccw(l[0], l[1], B) < 0)
+      Q.push_back(crosspoint(L(A, B), l));
+  }
+  return Q;
+}
 // 点-多角形包含判定(凸じゃないといけない) O(log n)
 int convex_contains(const G &polygon, const P &p) {
+  if( polygon.size() < 3 ) return OUT;
   const int n = polygon.size();
+  // cout << n << "<<" << endl;
   P g = (polygon[0] + polygon[n/3] + polygon[2*n/3]) / (double)3.0; // inner-point
   int a = 0, b = n;
   while (a+1 < b) { // invariant: c is in fan g-P[a]-P[b]
@@ -189,7 +202,10 @@ double area2(const G& poly) {
 // 凸包を求める O(n log n)
 vector<P> convex_hull(vector<P> ps) {
   int n = ps.size(), k = 0;
+  while( ps.size() < 3 )
+	ps.push_back(ps[0] + P(0.00001 * (rand() % 100),0.00001 * (rand() % 100)));
   sort(ps.begin(), ps.end());
+
   vector<P> ch(2*n);
   for (int i = 0; i < n; ch[k++] = ps[i++]) // lower-hull
     while (k >= 2 && ccw(ch[k-2], ch[k-1], ps[i]) <= 0) --k;

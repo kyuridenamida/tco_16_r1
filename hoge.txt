@@ -1,0 +1,676 @@
+﻿#include <algorithm>
+#include <cstdlib>
+#include <iostream>
+#include <map>
+#include <stack>
+#include <cassert>
+#include <sstream>
+#include <vector>
+using namespace std;
+/* 超注意：　ほとんどのアルゴリズムは多角形が反時計回りであることを仮定する． */
+#include <vector>
+#include <complex>
+#include <algorithm>
+#include <cmath>
+using namespace std;
+static const double EPS = 1e-9;
+const double INF = 1e12;
+const double PI = acos(-1);
+#define REP(i, n) for ( int i = 0; i < (n); i++ )
+
+typedef complex<double> P;
+typedef vector<P> G;
+
+namespace std {
+	bool operator < (const P& a, const P& b) {
+		return real(a) != real(b) ? real(a) < real(b) : imag(a) < imag(b);
+	} 
+}
+double cross(P a,P b) { return imag(conj(a)*b); }
+double dot(P a,P b) { return real(conj(a)*b);}
+
+//直線
+struct L : public vector<P> {
+	L(P a,P b) {
+		push_back(a); push_back(b);
+	}
+	
+};
+
+//円
+struct C {
+	P p;
+	double r;
+	C(const P &p, double r) : p(p), r(r) { }
+	C(){} 
+};
+
+int ccw(P a, P b, P c) {
+	b -= a; c -= a;
+	if (cross(b, c) > 0)   return +1;	// a → b で反時計方向に折れて b → c(？)
+	if (cross(b, c) < 0)   return -1;	// a → b で時計方向に折れて b → c(？)
+	if (dot(b, c) < 0) return +2;    	// a→bで逆向いてaを通り越してb→c(c--a--b)
+	if (norm(b) < norm(c)) return -2;	// a→bでそのままb→c(a--b--c)
+	return 0;							// a→bで逆向いてb→c(または b == c)
+}
+ 
+bool intersectLL(const L &l, const L &m) {
+	return abs(cross(l[1]-l[0], m[1]-m[0])) > EPS || 
+	abs(cross(l[1]-l[0], m[0]-l[0])) < EPS;
+}
+bool intersectLS(const L &l, const L &s) {
+	return cross(l[1]-l[0], s[0]-l[0])*cross(l[1]-l[0], s[1]-l[0]) < EPS;
+}
+bool intersectLP(const L &l, const P &p) {
+	return abs(cross(l[1]-p, l[0]-p)) < EPS;
+}
+bool intersectSS(const L &s, const L &t) {	// <= 0を < にすると通ることがあるらしい。
+	return	ccw(s[0],s[1],t[0])*ccw(s[0],s[1],t[1]) <= 0 && 
+			ccw(t[0],t[1],s[0])*ccw(t[0],t[1],s[1]) <= 0;
+}
+bool intersectSP(const L &s, const P &p) {
+	return abs(s[0]-p)+abs(s[1]-p)-abs(s[1]-s[0]) < EPS;
+}
+// 垂線の足
+P projection(const L &l, const P &p) {
+	double t = dot(p-l[0], l[0]-l[1]) / norm(l[0]-l[1]);
+	return l[0] + t*(l[0]-l[1]);
+}
+// 直線に対称な点
+P reflection(const L &l, const P &p) {
+	return p + (double)2.0 * (projection(l, p) - p);
+}
+
+double distanceLP(const L &l, const P &p) {
+	return abs(p - projection(l, p));
+}
+double distanceLL(const L &l, const L &m) {
+	return intersectLL(l, m) ? 0 : distanceLP(l, m[0]);
+}
+double distanceLS(const L &l, const L &s) {
+	if (intersectLS(l, s)) return 0;
+	return min(distanceLP(l, s[0]), distanceLP(l, s[1]));
+}
+double distanceSP(const L &s, const P &p) {
+	const P r = projection(s, p);
+	if (intersectSP(s, r)) return abs(r - p);
+	return min(abs(s[0] - p), abs(s[1] - p));
+}
+double distanceSS(const L &s, const L &t) {
+	if (intersectSS(s, t)) return 0;
+	return min(min(distanceSP(s, t[0]), distanceSP(s, t[1])),min(distanceSP(t, s[0]), distanceSP(t, s[1])));
+}
+ 
+P crosspoint(const L &l, const L &m) {
+	double A = cross(l[1] - l[0], m[1] - m[0]);
+	double B = cross(l[1] - l[0], l[1] - m[0]);
+	if (abs(A) < EPS && abs(B) < EPS) return m[0];
+	return m[0] + B / A * (m[1] - m[0]);
+}
+ 
+#define curr(P, i) P[(i) % P.size()]
+#define next(P, i) P[(i+1)%P.size()]
+#define prev(P, i) P[(i+P.size()-1) % P.size()]
+enum { OUT, ON, IN };
+// 点-多角形包含判定(凸でなくとも良い) O(n) ロバストなことを確認
+int contains(const G& polygon, const P& p) {
+	bool in = false;
+	for (int i = 0; i < polygon.size(); ++i) {
+		P a = curr(polygon,i) - p, b = next(polygon,i) - p;
+		if (imag(a) > imag(b)) swap(a, b);
+		if (imag(a) <= 0 && 0 < imag(b))
+			if (cross(a, b) < 0) in = !in;
+		if (cross(a, b) == 0 && dot(a, b) <= 0) return ON;
+	}
+	return in ? IN : OUT;
+}
+
+// !CAUTION! number は有理数以上
+G convex_cut(const G& p, const L& l) {
+  G Q;
+  for (int i = 0; i < p.size(); ++i) {
+    P A = curr(p, i), B = next(p, i);
+    if (ccw(l[0], l[1], A) != -1) Q.push_back(A);
+    if (ccw(l[0], l[1], A)*ccw(l[0], l[1], B) < 0)
+      Q.push_back(crosspoint(L(A, B), l));
+  }
+  return Q;
+}
+// 点-多角形包含判定(凸じゃないといけない) O(log n)
+int convex_contains(const G &polygon, const P &p) {
+  if( polygon.size() < 3 ) return OUT;
+  const int n = polygon.size();
+  // cout << n << "<<" << endl;
+  P g = (polygon[0] + polygon[n/3] + polygon[2*n/3]) / (double)3.0; // inner-point
+  int a = 0, b = n;
+  while (a+1 < b) { // invariant: c is in fan g-P[a]-P[b]
+    int c = (a + b) / (double)2;
+    if (cross(polygon[a]-g, polygon[c]-g) > 0) { // angle < 180 deg
+      if (cross(polygon[a]-g, p-g) > 0 && cross(polygon[c]-g, p-g) < 0) b = c;
+      else a = c;
+    } else {
+      if (cross(polygon[a]-g, p-g) < 0 && cross(polygon[c]-g, p-g) > 0) a = c;
+      else b = c;
+    }
+  }
+  b %= n;
+  if (cross(polygon[a] - p, polygon[b] - p) < 0) return 0;
+  if (cross(polygon[a] - p, polygon[b] - p) > 0) return 2;
+  return 1;
+}
+
+//凸多角形の共通部分(2関数) 怪しいらしい. O(n + m)．
+bool intersect_1pt(const P& a, const P& b,
+                   const P& c, const P& d, P &r) {
+  double D =  cross(b - a, d - c);
+  if (fabs(D) < EPS) return false;
+  double t =  cross(c - a, d - c) / D;
+  double s = -cross(a - c, b - a) / D;
+  r = a + t * (b - a);
+  return t >= -EPS && t <= 1 + EPS && s >= -EPS && s <= 1 + EPS;
+}
+G convex_intersect(const G &X, const G &Q) {
+  const int n = X.size(), m = Q.size();
+  int a = 0, b = 0, aa = 0, ba = 0;
+  enum { Xin, Qin, Unknown } in = Unknown;
+  G R;
+  do {
+    int a1 = (a+n-1) % n, b1 = (b+m-1) % m;
+    double C = cross(X[a] - X[a1], Q[b] - Q[b1]);
+    double A = cross(X[a1] - Q[b], X[a] - Q[b]);
+    double B = cross(Q[b1] - X[a], Q[b] - X[a]);
+    P r;
+    if (intersect_1pt(X[a1], X[a], Q[b1], Q[b], r)) {
+      if (in == Unknown) aa = ba = 0;
+      R.push_back( r );
+      in = B > 0 ? Xin : A > 0 ? Qin : in;
+    }
+    if (C == 0 && B == 0 && A == 0) {
+      if (in == Xin) { b = (b + 1) % m; ++ba; }
+      else           { a = (a + 1) % m; ++aa; }
+    } else if (C >= 0) {
+      if (A > 0) { if (in == Xin) R.push_back(X[a]); a = (a+1)%n; ++aa; }
+      else       { if (in == Qin) R.push_back(Q[b]); b = (b+1)%m; ++ba; }
+    } else {
+      if (B > 0) { if (in == Qin) R.push_back(Q[b]); b = (b+1)%m; ++ba; }
+      else       { if (in == Xin) R.push_back(X[a]); a = (a+1)%n; ++aa; }
+    }
+  } while ( (aa < n || ba < m) && aa < 2*n && ba < 2*m );
+  if (in == Unknown) {
+    if (convex_contains(Q, X[0])) return X;
+    if (convex_contains(X, Q[0])) return Q;
+  }
+  return R;
+}
+// 単純多角形の面積の"2倍"を求める O(n)
+double area2(const G& poly) {
+	double A = 0;
+	REP(i,poly.size()) A += cross(curr(poly, i), next(poly, i));
+	return A;
+}
+// 凸包を求める O(n log n)
+vector<P> convex_hull(vector<P> ps) {
+  int n = ps.size(), k = 0;
+  while( ps.size() < 3 )
+	ps.push_back(ps[0] + P(0.00001 * (rand() % 100),0.00001 * (rand() % 100)));
+  sort(ps.begin(), ps.end());
+
+  vector<P> ch(2*n);
+  for (int i = 0; i < n; ch[k++] = ps[i++]) // lower-hull
+    while (k >= 2 && ccw(ch[k-2], ch[k-1], ps[i]) <= 0) --k;
+  for (int i = n-2, t = k+1; i >= 0; ch[k++] = ps[i--]) // upper-hull
+    while (k >= t && ccw(ch[k-2], ch[k-1], ps[i]) <= 0) --k;
+  ch.resize(k-1);
+  return ch;
+}
+//円同士の交点
+vector<P> C_cp(C a,C b){
+	vector<P> ret;
+	double L = abs(a.p-b.p);
+
+	if(	L-a.r-b.r > EPS || (abs(a.p-b.p)<EPS && fabs(a.r-b.r)<EPS) || 
+		abs(a.p-b.p) < abs(a.r-b.r)
+	)return ret;
+ 
+	double theta = atan2(b.p.imag()-a.p.imag(),b.p.real()-a.p.real());
+	double c = (L*L+a.r*a.r-b.r*b.r)/(2*L*a.r);
+	ret.push_back(
+		P(a.p.real()+a.r*cos(theta+acos(c)),
+		  a.p.imag()+a.r*sin(theta+acos(c)))
+	);
+	if(fabs(L-a.r-b.r) > EPS)
+		ret.push_back(
+			P(a.p.real()+a.r*cos(theta-acos(c)),
+			  a.p.imag()+a.r*sin(theta-acos(c)))
+		);
+	return ret;
+}
+
+
+// 垂線の足元を求める。
+P getPedal(L l, P p){
+	double A;
+	if(abs(l[1].real()-l[0].real()) < EPS){
+		return P(l[1].real(),p.imag()); // important
+	}else{
+		A = (l[1].imag()-l[0].imag())/(l[1].real()-l[0].real());
+	}
+	double a = -A , b = 1 , c = A*l[0].real() - l[0].imag();
+	double t = (a*p.real() + b*p.imag() + c)/(a*a+b*b);
+	return p-t * P(a,b);
+}
+ 
+// 円と直線の交点
+vector<P> crosspointCL(const L l, const C c){
+	vector<P> ret;
+	P p = getPedal(l,c.p);
+	if(	abs(p-c.p) > c.r+EPS)return ret;
+	P e = P((l[1]-l[0])/abs(l[1]-l[0]));
+	double S = sqrt(c.r*c.r-abs(p-c.p)*abs(p-c.p));
+	ret.push_back(p+S*e);
+	ret.push_back(p-S*e);
+	return ret;
+}
+
+
+
+struct Edge{
+	int src,dst;
+	Edge(int src,int dst) : src(src), dst(dst) {}
+};
+
+
+class Tree{
+public:
+	int n;
+	vector<Edge> es;
+	vector<P> position;
+	int root;
+	vector<P> convex_polygon;
+	vector<vector<int>> child;
+	vector<int> parent;
+	vector<int> depth;
+	vector<double> tot_sum_of_tree;
+	Tree(int n,const vector<Edge> es,vector<P> position,int root) : n(n), es(es), position(position), root(root){
+		convex_polygon = convex_hull(position);
+		
+		
+		
+		parent = vector<int>(n,-1);
+		depth = vector<int>(n);
+		child = vector<vector<int>>(n);
+		
+		vector<vector<int>> g(n);
+		for( auto e : es ){
+			g[e.src].push_back(e.dst);
+			g[e.dst].push_back(e.src);
+		}
+		
+		stack< array<int,3> > S;
+		S.push(array<int,3>{root,-1,0});
+		while( S.size() ){
+			int x = S.top()[0];
+			int p = S.top()[1];
+			int d = S.top()[2];
+			S.pop();
+			parent[x] = p;
+			depth[x] = d;
+			for( auto e : g[x] ){
+				if( e != p ){
+					S.push(array<int,3>{e,x,d+1});
+					child[x].push_back(e);
+				}
+			}
+		}
+		
+		tot_sum_of_tree = vector<double>(n,0);
+		init_dfs(root);
+	}
+private:
+	void init_dfs(int x){
+		for( auto c : child[x] ){
+			init_dfs(c);
+			tot_sum_of_tree[x] += tot_sum_of_tree[c] + abs(position[x]-position[c]);
+		}
+	}
+};
+
+
+class Problem{
+public:
+	vector<Tree> trees;
+	Problem(int NP,vector<int> points,vector<int> roots){
+		int n = points.size() / 2;
+		
+		map<P,vector<P>> graph;
+		map<int,P> id_to_pos;	
+		for(int i = 0 ; i < n ; i++)
+			id_to_pos[i] = P(points[2*i],points[2*i+1]);
+		
+		vector<vector<int>> g(id_to_pos.size());
+		for(int i = 0 ; i < roots.size() ; i += 2 ){
+			g[roots[i]].push_back(roots[i+1]);
+			g[roots[i+1]].push_back(roots[i]);
+		}
+		vector<bool> done(n,false);
+		for(int root = 0 ; root < n ; root++){
+			if( !done[root] ){
+				map<int,int> relabel;
+				vector<Edge> es;
+				inner_listup_component(root,g,done,relabel,es);
+				vector<P> position(relabel.size());
+				for( auto r : relabel )
+					position[r.second] = id_to_pos[r.first];
+				trees.push_back(Tree(points.size(),es,position,0));
+			}
+		}
+		assert( trees.size() == NP );
+	}
+private:
+	void inner_listup_component(int x,const vector<vector<int>> &g,vector<bool> &done, map<int,int> &relabel,vector<Edge> &es){
+		assert( !done[x] );
+		done[x] = true;
+		int k = relabel.size();
+		relabel[x] = k;
+		for( auto to : g[x] ){
+			if( !done[to] ){
+				inner_listup_component(to,g,done,relabel,es);
+				es.push_back(Edge(relabel[x],relabel[to]));
+			}
+		}
+		
+		
+	
+	}
+};
+
+
+class Answer{
+public:
+	vector<L> lines; 
+	Answer(){}
+	Answer(vector<int> ps){
+		assert(ps.size() % 2 == 0);
+		for(int i = 0 ; i < ps.size() ; i += 4){
+			lines.push_back(L(P(ps[i],ps[i+1]),P(ps[i+2],ps[i+3])));
+		}
+	}
+	void add_line(const L &line){
+		lines.push_back(line);
+	}
+	vector<int> to_vector(){
+		vector<int> vs;
+		for( auto line : lines ){
+			vs.push_back(line[0].real()+0.5);
+			vs.push_back(line[0].imag()+0.5);
+			vs.push_back(line[1].real()+0.5);
+			vs.push_back(line[1].imag()+0.5);
+		}
+		return vs;
+	}
+};
+class ExtendedAnswer : public Answer{
+public:
+	vector<G> convex_polygon;
+	vector<double> original_area;
+	void init(const Problem &problem){
+		assert(!original_area.size());
+		for(const auto &tree : problem.trees ){
+			original_area.push_back(area2(tree.convex_polygon));
+			convex_polygon.push_back(tree.convex_polygon);
+		}
+	}
+};
+
+
+class NaiveScoring{
+public:
+	static double score_of_tree(const Tree &tree,const Answer &answer){
+		return inner_dfs_score_of_tree(tree,answer,tree.root);
+	}
+	static double overall_score(const Problem &problem,const Answer &answer){
+		double sum = 0;
+		for( const auto &tree : problem.trees ){
+			sum += score_of_tree(tree,answer);
+		}
+		return sum;
+	}
+	
+	static double score_of_tree_fast(const Tree &tree,const Answer &answer){
+		double all_area = area2(tree.convex_polygon);
+		if( all_area < EPS ) return 0;
+		G cut_g = tree.convex_polygon;
+		for(auto l : answer.lines ){
+			if( cut_g.size() == 0 ) return 0;
+			auto g1 = convex_cut(cut_g,l);
+			if( convex_contains(g1,tree.position[tree.root]) != OUT ){
+				cut_g = g1;
+			}else{
+				auto g2 = convex_cut(cut_g,L(l[1],l[0]));
+				cut_g = g2;
+			}	
+		}
+		double sub_area =  area2(cut_g);
+		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
+	}
+	static double overall_score_fast(const Problem &problem,const Answer &answer){
+		double sum = 0;
+		for( const auto &tree : problem.trees ){
+			sum += score_of_tree_fast(tree,answer);
+		}
+		return sum;
+	}
+
+	static double score_of_tree_fast_differ_ver(int tree_id,const Tree &tree,ExtendedAnswer &answer,const L &l){
+		double all_area = answer.original_area[tree_id];
+		if( all_area < EPS ) return 0;
+		G& cut_g = answer.convex_polygon[tree_id];
+		if( cut_g.size() == 0 ) return 0;
+		auto g1 = convex_cut(cut_g,l);
+		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
+			cut_g = g1;
+		}else{
+			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
+			cut_g = g2;
+		}
+		double sub_area =  area2(cut_g);
+		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
+	}
+	static double overall_score_fast_differ_ver(const Problem &problem,ExtendedAnswer &answer,const L &l){
+		double sum = 0;
+		for(int i = 0 ; i < problem.trees.size() ; i++){
+			sum += score_of_tree_fast_differ_ver(i,problem.trees[i],answer,l);
+		}
+		answer.lines.push_back(l);
+		return sum;
+	}
+	static double overall_score_fast_nonline(const Problem &problem,ExtendedAnswer &answer){
+		double sum = 0;
+		for(int i = 0 ; i < problem.trees.size() ; i++){
+			if( answer.original_area[i] > EPS ){
+				sum += area2(answer.convex_polygon[i]) / answer.original_area[i] * problem.trees[i].tot_sum_of_tree[problem.trees[i].root];
+			}
+		}
+		return sum;
+	}
+private:
+	static double inner_dfs_score_of_tree(const Tree &tree,const Answer &answer,int x){
+		double sum = 0;
+		for( auto c : tree.child[x] ){
+			// ここ前計算で114514倍くらい速くなると思う
+			double cut_dist = INF;
+			for( const auto& line : answer.lines ){
+				//assert(!(intersectLP(line,tree.position[x]) and !intersectLP(line,tree.position[c])));
+				if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
+					P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
+					//assert(abs(cp-tree.position[x]) > EPS and abs(cp-tree.position[c]) > EPS);
+					cut_dist = min(cut_dist,abs(cp-tree.position[x]));
+				}
+			}
+			if( cut_dist != INF ){
+				// cerr << cut_dist << " " << abs(tree.position[x]-tree.position[c]) << endl;
+				sum += cut_dist; 
+			}else{
+				sum += inner_dfs_score_of_tree(tree,answer,c);
+				sum += abs(tree.position[x]-tree.position[c]);
+			}
+		}
+		return sum;
+	}
+
+};
+
+class GeomUtils{
+public:
+	static bool is_separating(L l,P p1,P p2){
+		int r1 = ccw(l[0],l[1],p1);
+		int r2 = ccw(l[0],l[1],p2);
+		return abs(r1) == 1 && abs(r2) == 1 && r1 != r2;
+	}
+	static L convert_to_integer_line(L l,P p1,P p2){
+		// cout << l[1] << " " << l[0] << endl;
+		P vec = (l[1] - l[0]) / abs(l[1]-l[0]);
+		// cout << vec << endl;
+		if( abs(vec.real()) < EPS ) {
+			int x = (l[0].real()+0.5);
+			return L(P(x,0),P(x,1));
+		}
+		if( abs(vec.imag()) < EPS ){
+			int y = (l[0].imag()+0.5);
+			return L(P(0,y),P(1,y));
+		}
+		P vx = vec / vec.real();
+		//cout << vx << endl;
+		vector< pair<double,P> > ps;
+		for(int i = 0 ; i <= 1024 ; i++){
+			P t = l[0] + (i-l[0].real()) * vx;
+			if( -EPS <= t.real() && t.real() <= 1024 + EPS && 
+				-EPS <= t.imag() && t.imag() <= 1024 + EPS ){
+				int X = t.real() + 0.5;
+				int Y = t.imag() + 0.5;
+				ps.push_back({abs(t.real()-X)+abs(t.imag()-Y),P(X,Y)});
+			}
+		}
+		P vy = vec / vec.imag();
+		// cout << l[0] << " " << vy << endl;
+		for(int i = 0 ; i <= 1024 ; i++){
+			P t = l[0] + (i-l[0].imag()) * vy;
+			if( -EPS <= t.real() && t.real() <= 1024 + EPS && 
+				-EPS <= t.imag() && t.imag() <= 1024 + EPS ){
+				int X = t.real() + 0.5;
+				int Y = t.imag() + 0.5;
+				ps.push_back({abs(t.real()-X)+abs(t.imag()-Y),P(X,Y)});
+			}
+		}
+		sort(ps.begin(),ps.end());
+		
+		for(int i = 0 ; i < ps.size() ; i++){
+			for(int j = i+1 ; j < ps.size() ; j++){
+				if( abs(ps[i].second-ps[j].second) < EPS ) continue;
+				if( GeomUtils::is_separating(L(ps[i].second,ps[j].second),p1,p2) ){
+					return L(ps[i].second,ps[j].second);
+				}
+			}
+		}
+		return L(P(-1,-1),P(-1,-1));
+	}
+};
+
+
+class CutTheRoots {
+public:
+	
+    vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
+		//cout << intersectLS(L(P(0,0),P(100,0)),L(P(1,0),P(2,0))) << endl;
+		Problem problem(NP,points,roots);
+		//cerr << NaiveScoring::overall_score(problem,{}) << endl;
+		
+		Answer answer = greedy1(problem);
+        return answer.to_vector();
+    }
+	Answer greedy1(const Problem &problem){
+		int N = problem.trees.size();
+		ExtendedAnswer answer;
+		answer.init(problem);
+		
+		vector<pair<double,pair<int,int>>> pairs;
+		for(int i = 0 ; i < N ; i++){
+			for(int j = i+1; j < N ; j++){
+				P p1 = problem.trees[i].position[problem.trees[i].root];
+				P p2 = problem.trees[j].position[problem.trees[j].root];
+				pairs.push_back({norm(p1-p2),{i,j}});
+			}
+		}
+		sort(pairs.begin(),pairs.end());
+		for(int li = 0 ; li < pairs.size(); li++){
+			int i = pairs[li].second.first;
+			int j = pairs[li].second.second;
+			P p1 = problem.trees[i].position[problem.trees[i].root];
+			P p2 = problem.trees[j].position[problem.trees[j].root];
+			bool separated = false;
+			for( auto l : answer.lines ){
+				if( GeomUtils::is_separating(l,p1,p2) ){
+					separated = true;
+					break;
+				}
+			}
+			
+			if( !separated ){
+				
+				P mp = 0.5 * (p1 + p2);
+				double cur = NaiveScoring::overall_score_fast_nonline(problem,answer);
+				// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
+				vector<pair<double,ExtendedAnswer>> cand;
+				for(int k = 0 ; k < 29 ; k++){
+					P vec = (p1-p2) * exp(P(0,2*PI*k/29));
+					L l = L(mp,mp+vec);
+					L fix_l = GeomUtils::convert_to_integer_line(l,p1,p2);
+					if( fix_l[0] != P(-1,-1) and GeomUtils::is_separating(fix_l,p1,p2) ){						
+						ExtendedAnswer copied_answer = answer;
+						double loss = cur - NaiveScoring::overall_score_fast_differ_ver(problem,copied_answer,fix_l);
+						cand.push_back({loss,copied_answer});
+					}
+				}
+				sort(cand.begin(),cand.end(),[&](const pair<double,ExtendedAnswer> &a,const pair<double,ExtendedAnswer> &b){
+					return a.first < b.first;
+					
+				});
+				// answer.add_line(cand[0].second);
+				// cerr << answer.lines.size() << endl;	
+				answer = cand[0].second;
+				// cerr << fix_l[0] << " " << fix_l[1] << endl;
+			}
+		}
+		return answer;
+	}
+};
+#ifdef LOCAL
+template<class T> void getVector(vector<T>& v) {
+    for (int i = 0; i < v.size(); ++i)
+        cin >> v[i];
+}
+
+
+int main() {
+    int NP;
+    cin >> NP;
+    int Npoints;
+    cin >> Npoints;
+    vector<int> points(Npoints);
+    getVector(points);
+
+    int Nroots;
+    cin >> Nroots;
+    vector<int> roots(Nroots);
+    getVector(roots);
+
+    CutTheRoots cr;
+    vector<int> ret = cr.makeCuts(NP, points, roots);
+	
+    cout << ret.size() << endl;
+    for (int i = 0; i < ret.size(); ++i) {
+        cout << ret[i] << endl;
+    }
+    cout.flush();
+}
+#endif

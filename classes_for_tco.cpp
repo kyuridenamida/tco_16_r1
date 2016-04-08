@@ -17,14 +17,20 @@ struct Edge{
 
 class Tree{
 public:
-	int n,root;
+	int n;
+	vector<Edge> es;
 	vector<P> position;
+	int root;
+	vector<P> convex_polygon;
 	vector<vector<int>> child;
 	vector<int> parent;
 	vector<int> depth;
 	vector<double> tot_sum_of_tree;
-	vector<Edge> es;
-	Tree(int n,const vector<Edge> &es,vector<P> position,int root) : n(n), position(position), es(es), root(root){
+	Tree(int n,const vector<Edge> es,vector<P> position,int root) : n(n), es(es), position(position), root(root){
+		convex_polygon = convex_hull(position);
+		
+		
+		
 		parent = vector<int>(n,-1);
 		depth = vector<int>(n);
 		child = vector<vector<int>>(n);
@@ -56,7 +62,7 @@ public:
 		init_dfs(root);
 	}
 private:
-	double init_dfs(int x){
+	void init_dfs(int x){
 		for( auto c : child[x] ){
 			init_dfs(c);
 			tot_sum_of_tree[x] += tot_sum_of_tree[c] + abs(position[x]-position[c]);
@@ -65,30 +71,6 @@ private:
 };
 
 
-struct Answer{
-	vector<L> lines; 
-	Answer(){}
-	Answer(vector<int> ps){
-		assert(ps.size() % 2 == 0);
-		for(int i = 0 ; i < ps.size() ; i += 4){
-			lines.push_back(L(P(ps[i],ps[i+1]),P(ps[i+2],ps[i+3])));
-		}
-	}
-	void add_line(const L &line){
-		lines.push_back(line);
-	}
-	
-	vector<int> to_vector(){
-		vector<int> vs;
-		for( auto line : lines ){
-			vs.push_back(line[0].real()+0.5);
-			vs.push_back(line[0].imag()+0.5);
-			vs.push_back(line[1].real()+0.5);
-			vs.push_back(line[1].imag()+0.5);
-		}
-		return vs;
-	}
-};
 class Problem{
 public:
 	vector<Tree> trees;
@@ -137,6 +119,45 @@ private:
 	}
 };
 
+
+class Answer{
+public:
+	vector<L> lines; 
+	Answer(){}
+	Answer(vector<int> ps){
+		assert(ps.size() % 2 == 0);
+		for(int i = 0 ; i < ps.size() ; i += 4){
+			lines.push_back(L(P(ps[i],ps[i+1]),P(ps[i+2],ps[i+3])));
+		}
+	}
+	void add_line(const L &line){
+		lines.push_back(line);
+	}
+	vector<int> to_vector(){
+		vector<int> vs;
+		for( auto line : lines ){
+			vs.push_back(line[0].real()+0.5);
+			vs.push_back(line[0].imag()+0.5);
+			vs.push_back(line[1].real()+0.5);
+			vs.push_back(line[1].imag()+0.5);
+		}
+		return vs;
+	}
+};
+class ExtendedAnswer : public Answer{
+public:
+	vector<G> convex_polygon;
+	vector<double> original_area;
+	void init(const Problem &problem){
+		assert(!original_area.size());
+		for(const auto &tree : problem.trees ){
+			original_area.push_back(area2(tree.convex_polygon));
+			convex_polygon.push_back(tree.convex_polygon);
+		}
+	}
+};
+
+
 class NaiveScoring{
 public:
 	static double score_of_tree(const Tree &tree,const Answer &answer){
@@ -146,6 +167,64 @@ public:
 		double sum = 0;
 		for( const auto &tree : problem.trees ){
 			sum += score_of_tree(tree,answer);
+		}
+		return sum;
+	}
+	
+	static double score_of_tree_fast(const Tree &tree,const Answer &answer){
+		double all_area = area2(tree.convex_polygon);
+		if( all_area < EPS ) return 0;
+		G cut_g = tree.convex_polygon;
+		for(auto l : answer.lines ){
+			if( cut_g.size() == 0 ) return 0;
+			auto g1 = convex_cut(cut_g,l);
+			if( convex_contains(g1,tree.position[tree.root]) != OUT ){
+				cut_g = g1;
+			}else{
+				auto g2 = convex_cut(cut_g,L(l[1],l[0]));
+				cut_g = g2;
+			}	
+		}
+		double sub_area =  area2(cut_g);
+		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
+	}
+	static double overall_score_fast(const Problem &problem,const Answer &answer){
+		double sum = 0;
+		for( const auto &tree : problem.trees ){
+			sum += score_of_tree_fast(tree,answer);
+		}
+		return sum;
+	}
+
+	static double score_of_tree_fast_differ_ver(int tree_id,const Tree &tree,ExtendedAnswer &answer,const L &l){
+		double all_area = answer.original_area[tree_id];
+		if( all_area < EPS ) return 0;
+		G& cut_g = answer.convex_polygon[tree_id];
+		if( cut_g.size() == 0 ) return 0;
+		auto g1 = convex_cut(cut_g,l);
+		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
+			cut_g = g1;
+		}else{
+			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
+			cut_g = g2;
+		}
+		double sub_area =  area2(cut_g);
+		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
+	}
+	static double overall_score_fast_differ_ver(const Problem &problem,ExtendedAnswer &answer,const L &l){
+		double sum = 0;
+		for(int i = 0 ; i < problem.trees.size() ; i++){
+			sum += score_of_tree_fast_differ_ver(i,problem.trees[i],answer,l);
+		}
+		answer.lines.push_back(l);
+		return sum;
+	}
+	static double overall_score_fast_nonline(const Problem &problem,ExtendedAnswer &answer){
+		double sum = 0;
+		for(int i = 0 ; i < problem.trees.size() ; i++){
+			if( answer.original_area[i] > EPS ){
+				sum += area2(answer.convex_polygon[i]) / answer.original_area[i] * problem.trees[i].tot_sum_of_tree[problem.trees[i].root];
+			}
 		}
 		return sum;
 	}
@@ -228,7 +307,6 @@ public:
 				}
 			}
 		}
-		assert(false and "ps!!");
-		
+		return L(P(-1,-1),P(-1,-1));
 	}
 };

@@ -49,7 +49,7 @@ def run_program(seed):
 		print("%03d"%seed,status,file=sys.stderr)
 		return [seed,NP,NR,AVGR,all,alive,score]
 	except subprocess.TimeoutExpired:
-		status = "TLE(5s)"
+		status = "TLE(10s)"
 		print("%03d"%seed,status,file=sys.stderr)
 		return []
 	except KeyboardInterrupt:
