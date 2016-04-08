@@ -26,7 +26,7 @@ def run_program(seed):
 			os.makedirs(visdir, exist_ok=True)
 		
 		out_data = subprocess.check_output(
-			arg, timeout=1000,stderr=subprocess.STDOUT
+			arg, timeout=8,stderr=subprocess.STDOUT
 		)
 		out_data = out_data.decode('utf-8')
 		out_data = out_data.replace('\r\n','\n')

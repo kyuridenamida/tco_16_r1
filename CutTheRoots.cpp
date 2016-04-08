@@ -48,30 +48,32 @@ public:
 			}
 			
 			if( !separated ){
-				
-				P mp = 0.5 * (p1 + p2);
+				vector<pair<double,L>> cand;
 				double cur = NaiveScoring::overall_score_fast_nonline(problem,answer);
-				// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
-				vector<pair<double,ExtendedAnswer>> cand;
-				for(int k = 0 ; k < 19 ; k++){
-					P vec = (p1-p2) * exp(P(0,2*PI*k/19));
-					L l = L(mp,mp+vec);
-					L fix_l = GeomUtils::convert_to_integer_line(l,p1,p2);
-					if( fix_l[0] != P(-1,-1) and GeomUtils::is_separating(fix_l,p1,p2) ){						
-						ExtendedAnswer copied_answer = answer;
-						double loss = cur - NaiveScoring::overall_score_fast_differ_ver(problem,copied_answer,fix_l);
-						cand.push_back({loss,copied_answer});
+				for(int m = 1 ; m < 10 ; m++){
+					P mp = p1 + (p2-p1) * (double)(m/10.);
+					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
+					for(int k = 0 ; k < 19 ; k++){
+						P vec = (p1-p2) * exp(P(0,PI*k/19));
+						L l = L(mp,mp+vec);
+						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){						
+							ExtendedAnswer copied_answer = answer;
+							double loss = cur - NaiveScoring::overall_score_fast_differ_ver(problem,copied_answer,l);
+							cand.push_back({loss,l});
+						}
 					}
 				}
-				sort(cand.begin(),cand.end(),[&](const pair<double,ExtendedAnswer> &a,const pair<double,ExtendedAnswer> &b){
+				sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
 					return a.first < b.first;
 					
 				});
-				
-				// answer.add_line(cand[0].second);
-				// cerr << answer.lines.size() << endl;	
-				answer = cand[0].second;
-				// cerr << fix_l[0] << " " << fix_l[1] << endl;
+				for(int i = 0 ; i < cand.size() ; i++){
+					L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
+					if( fix_l[0] != P(-1,-1) and GeomUtils::is_separating(fix_l,p1,p2) ){
+							NaiveScoring::overall_score_fast_differ_ver(problem,answer,fix_l);
+							break;
+					}
+				}
 				
 				if( configuration.visualize_mode ) answer.draw(problem,colors);
 			}
