@@ -1,5 +1,5 @@
 ﻿#include "classes_for_tco.cpp"
-
+#include <cstdio>
 struct Configuration{
 	bool visualize_mode;
 	Configuration(){
@@ -10,10 +10,10 @@ class CutTheRoots {
 public:
 	
     vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
+		srand(time(NULL));
 		//cout << intersectLS(L(P(0,0),P(100,0)),L(P(1,0),P(2,0))) << endl;
 		Problem problem(NP,points,roots);
 		//cerr << NaiveScoring::overall_score(problem,{}) << endl;
-		
 		Answer answer = greedy1(problem);
         return answer.to_vector();
     }
@@ -33,6 +33,7 @@ public:
 				pairs.push_back({norm(p1-p2),{i,j}});
 			}
 		}
+		
 		sort(pairs.begin(),pairs.end());
 		for(int li = 0 ; li < pairs.size(); li++){
 			int i = pairs[li].second.first;
@@ -51,6 +52,7 @@ public:
 				vector<pair<double,L>> cand;
 				double cur = NaiveScoring::overall_score_fast_nonline(problem,answer);
 				for(int m = 1 ; m < 10 ; m++){
+					double lll = INF;
 					P mp = p1 + (p2-p1) * (double)(m/10.);
 					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
 					for(int k = 0 ; k < 19 ; k++){
@@ -59,10 +61,15 @@ public:
 						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){						
 							ExtendedAnswer copied_answer = answer;
 							double loss = cur - NaiveScoring::overall_score_fast_differ_ver(problem,copied_answer,l);
+							// printf("%5.0lf ",loss);
+							lll = min(lll,loss);
+							//cerr << loss << endl;
 							cand.push_back({loss,l});
 						}
 					}
+					// cerr << endl;
 				}
+				// cerr << endl;
 				sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
 					return a.first < b.first;
 					

@@ -26,7 +26,7 @@ def run_program(seed):
 			os.makedirs(visdir, exist_ok=True)
 		
 		out_data = subprocess.check_output(
-			arg, timeout=8,stderr=subprocess.STDOUT
+			arg, timeout=10000,stderr=subprocess.STDOUT
 		)
 		out_data = out_data.decode('utf-8')
 		out_data = out_data.replace('\r\n','\n')
@@ -66,7 +66,7 @@ def run_program(seed):
 		return []
 	
 seeds = range(1, 101)
-p = Pool(processes=cpu_count())
+p = Pool(processes=4)
 results = p.map(run_program, seeds)
 for res in results:
 	#print(",".join(map(str,res)))

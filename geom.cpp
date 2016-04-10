@@ -2,6 +2,7 @@
 #include <vector>
 #include <complex>
 #include <algorithm>
+#include <list>
 #include <cmath>
 using namespace std;
 static const double EPS = 1e-9;
@@ -263,3 +264,56 @@ vector<P> crosspointCL(const L l, const C c){
 	return ret;
 }
 
+
+
+//http://d.hatena.ne.jp/TobiasGSmollett/20150220/1424445987
+//お借りした
+struct Circle{
+  P p;
+  double r;
+  Circle(){}
+  Circle(P p, double r) : p(p) , r(r){}
+  
+  bool contain(P a){
+    return norm(a-p) <= r * r;
+  }
+  
+  static Circle circumCircle(P a,P b){
+    P q=(a+b)/2.0;
+	return Circle(q,abs(a-q));
+  }
+  
+  static Circle circumscribedCircle(P p, P q, P r){
+    P a=(q-p)*2.0,b=(r-p)*2.0;
+    P c(dot(p,p)-dot(q,q),dot(p,p)-dot(r,r));
+    Circle res;
+	double x = a.imag()*c.imag()-b.imag()*c.real();
+    double y = b.real()*c.real()-a.real()*c.imag();
+    res.p = P(x,y)/cross(a,b);
+    return Circle(res.p, abs(p-res.p));
+  }
+
+  static Circle minEnclosingCircle(vector<P>ps){
+    if(ps.size()==0)return Circle(P(0,0),0);
+    if(ps.size()==1)return Circle(ps[0],0);
+
+    Circle circle=circumCircle(ps[0],ps[1]);
+    for(int i=2;i<ps.size();i++){
+      if(!circle.contain(ps[i])){
+	circle=circumCircle(ps[0],ps[i]);
+	for(int j=1;j<i;j++){
+	  if(!circle.contain(ps[j])){
+	    circle=circumCircle(ps[j],ps[i]);
+	    for(int k=0;k<j;k++){
+	      if(!circle.contain(ps[k])){
+		circle=circumscribedCircle(ps[i],ps[j],ps[k]);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    return circle;
+  }
+
+};
