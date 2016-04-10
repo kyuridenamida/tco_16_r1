@@ -9,6 +9,10 @@
 using namespace std;
 #include "geom.cpp"
 
+const P null_point = P(-1,-1);
+const L null_line = L(null_point,null_point);
+
+
 struct Edge{
 	int src,dst;
 	Edge(int src,int dst) : src(src), dst(dst) {}
@@ -17,6 +21,7 @@ struct Edge{
 
 class Tree{
 public:
+	int id;
 	int n;
 	vector<Edge> es;
 	vector<P> position;
@@ -26,7 +31,7 @@ public:
 	vector<int> parent;
 	vector<int> depth;
 	vector<double> tot_sum_of_tree;
-	Tree(int n,const vector<Edge> es,vector<P> position,int root) : n(n), es(es), position(position), root(root){
+	Tree(int id,int n,const vector<Edge> es,vector<P> position,int root) : id(id), n(n), es(es), position(position), root(root){
 		convex_polygon = convex_hull(position);
 		
 		
@@ -96,7 +101,7 @@ public:
 				vector<P> position(relabel.size());
 				for( auto r : relabel )
 					position[r.second] = id_to_pos[r.first];
-				trees.push_back(Tree(points.size(),es,position,0));
+				trees.push_back(Tree(trees.size(),points.size(),es,position,0));
 			}
 		}
 		assert( trees.size() == NP );
@@ -157,17 +162,52 @@ public:
 		return res;
 	}
 };
+
+
 class ExtendedAnswer : public Answer{
 public:
+	Problem* problem;
+	// pre
 	vector<G> convex_polygon;
 	vector<double> original_area;
-	void init(const Problem &problem){
-		assert(!original_area.size());
-		for(const auto &tree : problem.trees ){
+	vector<double> current_area;
+	L unprocessed_line = null_line;
+	ExtendedAnswer(Problem *problem) : problem(problem){
+		for(const auto &tree : problem->trees ){
 			original_area.push_back(area2(tree.convex_polygon));
 			convex_polygon.push_back(tree.convex_polygon);
 		}
 	}
+	
+	double score_of_tree_rough(const Tree &tree,const L &l){
+		double all_area = original_area[tree.id];
+		if( all_area < EPS ) return 0;
+		G& cut_g = convex_polygon[tree.id];
+		if( cut_g.size() == 0 ) return 0;
+		auto g1 = convex_cut(cut_g,l);
+		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
+			cut_g = g1;
+		}else{
+			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
+			cut_g = g2;
+		}
+		double sub_area =  area2(cut_g);
+		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
+	}
+	
+	double MEMO_overall_score_rough;
+	double overall_score_rough(){
+		if( unprocessed_line == null_line ){
+			return MEMO_overall_score_rough;
+		}
+		double sum = 0;
+		for(const auto &tree : problem->trees ){
+			sum += score_of_tree_rough(tree,unprocessed_line);
+		}
+		unprocessed_line = null_line;
+		return MEMO_overall_score_rough = sum;
+	}
+	
 	void draw_MEC(const Problem &problem, vector<RGB> colors){
 		cout << "C " << 0 << " " << 0 << " " << 0 << " " << 512 << " " << 512 << " " << 512 << endl;
 		for(int i = 0 ; i < convex_polygon.size() ; i++){
@@ -218,7 +258,14 @@ public:
 		}
 		cout << "END" << endl;
 	}
+	
+	void add_line(const L &line){
+		assert( unprocessed_line == null_line );
+		unprocessed_line = line;
+		lines.push_back(line);
+	}
 };
+
 
 class NaiveScoring{
 public:
@@ -232,64 +279,7 @@ public:
 		}
 		return sum;
 	}
-	
-	static double score_of_tree_fast(const Tree &tree,const Answer &answer){
-		double all_area = area2(tree.convex_polygon);
-		if( all_area < EPS ) return 0;
-		G cut_g = tree.convex_polygon;
-		for(auto l : answer.lines ){
-			if( cut_g.size() == 0 ) return 0;
-			auto g1 = convex_cut(cut_g,l);
-			if( convex_contains(g1,tree.position[tree.root]) != OUT ){
-				cut_g = g1;
-			}else{
-				auto g2 = convex_cut(cut_g,L(l[1],l[0]));
-				cut_g = g2;
-			}	
-		}
-		double sub_area =  area2(cut_g);
-		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
-	}
-	static double overall_score_fast(const Problem &problem,const Answer &answer){
-		double sum = 0;
-		for( const auto &tree : problem.trees ){
-			sum += score_of_tree_fast(tree,answer);
-		}
-		return sum;
-	}
 
-	static double score_of_tree_fast_differ_ver(int tree_id,const Tree &tree,ExtendedAnswer &answer,const L &l){
-		double all_area = answer.original_area[tree_id];
-		if( all_area < EPS ) return 0;
-		G& cut_g = answer.convex_polygon[tree_id];
-		if( cut_g.size() == 0 ) return 0;
-		auto g1 = convex_cut(cut_g,l);
-		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
-			cut_g = g1;
-		}else{
-			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
-			cut_g = g2;
-		}
-		double sub_area =  area2(cut_g);
-		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
-	}
-	static double overall_score_fast_differ_ver(const Problem &problem,ExtendedAnswer &answer,const L &l){
-		double sum = 0;
-		for(int i = 0 ; i < problem.trees.size() ; i++){
-			sum += score_of_tree_fast_differ_ver(i,problem.trees[i],answer,l);
-		}
-		answer.lines.push_back(l);
-		return sum;
-	}
-	static double overall_score_fast_nonline(const Problem &problem,ExtendedAnswer &answer){
-		double sum = 0;
-		for(int i = 0 ; i < problem.trees.size() ; i++){
-			if( answer.original_area[i] > EPS ){
-				sum += area2(answer.convex_polygon[i]) / answer.original_area[i] * problem.trees[i].tot_sum_of_tree[problem.trees[i].root];
-			}
-		}
-		return sum;
-	}
 private:
 	static double inner_dfs_score_of_tree(const Tree &tree,const Answer &answer,int x){
 		double sum = 0;

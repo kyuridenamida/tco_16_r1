@@ -17,12 +17,11 @@ public:
 		Answer answer = greedy1(problem);
         return answer.to_vector();
     }
-	Answer greedy1(const Problem &problem){
+	Answer greedy1(Problem problem){
 		vector<RGB> colors;
 		for(int i = 0 ; i < problem.trees.size() ; i++) colors.push_back(RGB::random());
 		int N = problem.trees.size();
-		ExtendedAnswer answer;
-		answer.init(problem);
+		ExtendedAnswer answer(&problem);
 		if( configuration.visualize_mode ) answer.draw(problem,colors);
 		
 		vector<pair<double,pair<int,int>>> pairs;
@@ -50,7 +49,7 @@ public:
 			
 			if( !separated ){
 				vector<pair<double,L>> cand;
-				double cur = NaiveScoring::overall_score_fast_nonline(problem,answer);
+				double cur = answer.overall_score_rough();
 				for(int m = 1 ; m < 10 ; m++){
 					double lll = INF;
 					P mp = p1 + (p2-p1) * (double)(m/10.);
@@ -60,7 +59,8 @@ public:
 						L l = L(mp,mp+vec);
 						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){						
 							ExtendedAnswer copied_answer = answer;
-							double loss = cur - NaiveScoring::overall_score_fast_differ_ver(problem,copied_answer,l);
+							copied_answer.add_line(l);
+							double loss = cur - copied_answer.overall_score_rough();
 							// printf("%5.0lf ",loss);
 							lll = min(lll,loss);
 							//cerr << loss << endl;
@@ -76,8 +76,8 @@ public:
 				});
 				for(int i = 0 ; i < cand.size() ; i++){
 					L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
-					if( fix_l[0] != P(-1,-1) and GeomUtils::is_separating(fix_l,p1,p2) ){
-							NaiveScoring::overall_score_fast_differ_ver(problem,answer,fix_l);
+					if( fix_l[0] != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
+							answer.add_line(fix_l);
 							break;
 					}
 				}

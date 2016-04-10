@@ -26,8 +26,8 @@ struct L : public vector<P> {
 	L(P a,P b) {
 		push_back(a); push_back(b);
 	}
-	
 };
+L nullLine = L(P(-1,-1),P(-1,-1));
 
 //円
 struct C {
