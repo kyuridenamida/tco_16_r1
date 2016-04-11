@@ -170,20 +170,29 @@ public:
 	// pre
 	vector<G> convex_polygon;
 	vector<double> original_area;
-	vector<double> current_area;
+	vector<Circle> mecs;
 	L unprocessed_line = null_line;
 	ExtendedAnswer(Problem *problem) : problem(problem){
 		for(const auto &tree : problem->trees ){
 			original_area.push_back(area2(tree.convex_polygon));
 			convex_polygon.push_back(tree.convex_polygon);
+			mecs.push_back(Circle::minEnclosingCircle(tree.convex_polygon));
+			MEMO_score_of_tree_rough.push_back(0.0);
 		}
+		
 	}
 	
+	vector<double> MEMO_score_of_tree_rough;
+	
 	double score_of_tree_rough(const Tree &tree,const L &l){
+		if( distanceLP(l,mecs[tree.id].p) > mecs[tree.id].r ){
+			// cerr << mecs[tree.id].r << " " << distanceLP(l,mecs[tree.id].p) << endl;
+			return MEMO_score_of_tree_rough[tree.id];
+		}
 		double all_area = original_area[tree.id];
-		if( all_area < EPS ) return 0;
+		if( all_area < EPS ) return MEMO_score_of_tree_rough[tree.id] = 0;
 		G& cut_g = convex_polygon[tree.id];
-		if( cut_g.size() == 0 ) return 0;
+		if( cut_g.size() == 0 ) return MEMO_score_of_tree_rough[tree.id] = 0;
 		auto g1 = convex_cut(cut_g,l);
 		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
 			cut_g = g1;
@@ -191,8 +200,10 @@ public:
 			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
 			cut_g = g2;
 		}
+		mecs[tree.id] = Circle::minEnclosingCircle(cut_g);
 		double sub_area =  area2(cut_g);
-		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
+		
+		return MEMO_score_of_tree_rough[tree.id] = (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
 	}
 	
 	double MEMO_overall_score_rough;
@@ -236,6 +247,7 @@ public:
 	
 	}
 	void draw(const Problem &problem, vector<RGB> colors){
+		overall_score_rough();
 		draw_MEC(problem,colors);
 		return;
 		cout << "C " << 0 << " " << 0 << " " << 0 << " " << 512 << " " << 512 << " " << 512 << endl;
