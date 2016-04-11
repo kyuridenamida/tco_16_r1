@@ -49,18 +49,18 @@ public:
 			
 			if( !separated ){
 				vector<pair<double,L>> cand;
-				double cur = answer.overall_score_rough();
-				for(int m = 1 ; m < 10 ; m++){
+				double cur = answer.overall_score();
+				for(int m = 1 ; m < 5 ; m++){
 					double lll = INF;
-					P mp = p1 + (p2-p1) * (double)(m/10.);
+					P mp = p1 + (p2-p1) * (double)(m/5.);
 					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
-					for(int k = 0 ; k < 19 ; k++){
-						P vec = (p1-p2) * exp(P(0,PI*k/19));
+					for(int k = 0 ; k < 11 ; k++){
+						P vec = (p1-p2) * exp(P(0,PI*k/11));
 						L l = L(mp,mp+vec);
 						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){						
 							ExtendedAnswer copied_answer = answer;
 							copied_answer.add_line(l);
-							double loss = cur - copied_answer.overall_score_rough();
+							double loss = cur - copied_answer.overall_score();
 							// printf("%5.0lf ",loss);
 							lll = min(lll,loss);
 							//cerr << loss << endl;
@@ -68,8 +68,11 @@ public:
 						}
 					}
 					// cerr << endl;
+
 				}
+				//cerr << "OK" << endl;
 				// cerr << endl;
+
 				sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
 					return a.first < b.first;
 					

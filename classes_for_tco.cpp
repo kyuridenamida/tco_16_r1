@@ -30,6 +30,7 @@ public:
 	vector<vector<int>> child;
 	vector<int> parent;
 	vector<int> depth;
+	vector<double> length_between_parent;
 	vector<double> tot_sum_of_tree;
 	Tree(int id,int n,const vector<Edge> es,vector<P> position,int root) : id(id), n(n), es(es), position(position), root(root){
 		convex_polygon = convex_hull(position);
@@ -39,7 +40,8 @@ public:
 		parent = vector<int>(n,-1);
 		depth = vector<int>(n);
 		child = vector<vector<int>>(n);
-		
+		tot_sum_of_tree = length_between_parent = vector<double>(n,0);
+
 		vector<vector<int>> g(n);
 		for( auto e : es ){
 			g[e.src].push_back(e.dst);
@@ -57,13 +59,14 @@ public:
 			depth[x] = d;
 			for( auto e : g[x] ){
 				if( e != p ){
+					length_between_parent[e] = abs(position[e]-position[p]);
 					S.push(array<int,3>{e,x,d+1});
 					child[x].push_back(e);
 				}
 			}
 		}
 		
-		tot_sum_of_tree = vector<double>(n,0);
+		
 		init_dfs(root);
 	}
 private:
@@ -170,6 +173,8 @@ public:
 	// pre
 	vector<G> convex_polygon;
 	vector<double> original_area;
+
+
 	vector<Circle> mecs;
 	L unprocessed_line = null_line;
 	ExtendedAnswer(Problem *problem) : problem(problem){
@@ -177,15 +182,20 @@ public:
 			original_area.push_back(area2(tree.convex_polygon));
 			convex_polygon.push_back(tree.convex_polygon);
 			mecs.push_back(Circle::minEnclosingCircle(tree.convex_polygon));
-			MEMO_score_of_tree_rough.push_back(0.0);
+			MEMO_score_of_tree_rough.push_back(tree.tot_sum_of_tree[0]);
+			MEMO_score_of_tree.push_back(tree.tot_sum_of_tree[0]);
+			current_weight.push_back(vector<double>(tree.n,-1.0));
+			already_cut.push_back(vector<bool>(tree.n,false));
+					
 		}
 		
 	}
 	
+	
 	vector<double> MEMO_score_of_tree_rough;
 	
 	double score_of_tree_rough(const Tree &tree,const L &l){
-		if( distanceLP(l,mecs[tree.id].p) > mecs[tree.id].r ){
+		if( distanceLP(l,mecs[tree.id].p) > mecs[tree.id].r + EPS ){
 			// cerr << mecs[tree.id].r << " " << distanceLP(l,mecs[tree.id].p) << endl;
 			return MEMO_score_of_tree_rough[tree.id];
 		}
@@ -219,6 +229,7 @@ public:
 		return MEMO_overall_score_rough = sum;
 	}
 	
+
 	void draw_MEC(const Problem &problem, vector<RGB> colors){
 		cout << "C " << 0 << " " << 0 << " " << 0 << " " << 512 << " " << 512 << " " << 512 << endl;
 		for(int i = 0 ; i < convex_polygon.size() ; i++){
@@ -276,46 +287,66 @@ public:
 		unprocessed_line = line;
 		lines.push_back(line);
 	}
-};
 
 
-class NaiveScoring{
-public:
-	static double score_of_tree(const Tree &tree,const Answer &answer){
-		return inner_dfs_score_of_tree(tree,answer,tree.root);
-	}
-	static double overall_score(const Problem &problem,const Answer &answer){
-		double sum = 0;
-		for( const auto &tree : problem.trees ){
-			sum += score_of_tree(tree,answer);
+	vector<double> MEMO_score_of_tree;
+
+	double score_of_tree(const Tree &tree,const L &l){
+		if( distanceLP(l,tree.position[0]) > mecs[tree.id].r + EPS ){
+			return MEMO_score_of_tree[tree.id];
 		}
-		return sum;
+		return MEMO_score_of_tree[tree.id] = inner_dfs_score_of_tree(tree.root,tree,l);
 	}
 
-private:
-	static double inner_dfs_score_of_tree(const Tree &tree,const Answer &answer,int x){
+
+	double MEMO_overall_score;
+	double overall_score(){
+		if( unprocessed_line == null_line )
+			return MEMO_overall_score;
+
+		double sum = 0;
+		for( const auto &tree : problem->trees ){
+			sum += score_of_tree(tree,unprocessed_line);
+		}
+		unprocessed_line = null_line;
+		return MEMO_overall_score = sum;
+	}
+
+	vector< vector<double> > current_weight;
+	vector< vector<bool> > already_cut;
+	double inner_dfs_score_of_tree(int x,const Tree &tree,const L &line){
+		// if( distanceLP(line,tree.position[0]) > mecs[tree.id].r + EPS ){
+			
+		// 	if( current_weight[tree.id][x] != -1.0 ){
+
+		// 		return current_weight[tree.id][x];
+		// 	}
+		// }
+		if( already_cut[tree.id][x] ) return current_weight[tree.id][x];
+
+
 		double sum = 0;
 		for( auto c : tree.child[x] ){
 			// ここ前計算で114514倍くらい速くなると思う
 			double cut_dist = INF;
-			for( const auto& line : answer.lines ){
-				//assert(!(intersectLP(line,tree.position[x]) and !intersectLP(line,tree.position[c])));
-				if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
-					P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
-					//assert(abs(cp-tree.position[x]) > EPS and abs(cp-tree.position[c]) > EPS);
-					cut_dist = min(cut_dist,abs(cp-tree.position[x]));
-				}
+			if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
+				P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
+				cut_dist = min(cut_dist,abs(cp-tree.position[x]));
+				already_cut[tree.id][c] = true;
+				current_weight[tree.id][c] = cut_dist;
 			}
-			if( cut_dist != INF ){
-				// cerr << cut_dist << " " << abs(tree.position[x]-tree.position[c]) << endl;
-				sum += cut_dist; 
-			}else{
-				sum += inner_dfs_score_of_tree(tree,answer,c);
-				sum += abs(tree.position[x]-tree.position[c]);
-			}
+			sum += inner_dfs_score_of_tree(c,tree,line);			
 		}
-		return sum;
+		return current_weight[tree.id][x] = sum + tree.length_between_parent[x];
 	}
+
+};
+
+
+
+class NaiveScoring{
+public:
+
 
 };
 

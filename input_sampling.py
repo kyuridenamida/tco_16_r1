@@ -12,7 +12,7 @@ def generate_input(seed):
 	filename = os.path.join(dirname,"%03d.txt" % seed)
 	try:
 		out_data = subprocess.check_output(
-			["java","CutTheRootsVis","-seed",str(seed),"-exec",'./utils/input_saver.exe %s' %filename], timeout=5
+			["java","CutTheRootsVis","-seed",str(seed),"-exec",'./utils/input_saver %s' %filename], timeout=5
 		)
 		status = "generated"
 	except subprocess.TimeoutExpired:
