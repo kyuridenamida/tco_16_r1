@@ -15,14 +15,16 @@ public:
 		Problem problem(NP,points,roots);
 		//cerr << NaiveScoring::overall_score(problem,{}) << endl;
 		Answer answer = greedy1(problem);
+		// cerr << NaiveScoring::overall_score(problem,answer) << endl;
         return answer.to_vector();
     }
-	Answer greedy1(Problem problem){
+	Answer greedy1(Problem &problem){
+		return {};
 		vector<RGB> colors;
 		for(int i = 0 ; i < problem.trees.size() ; i++) colors.push_back(RGB::random());
 		int N = problem.trees.size();
 		ExtendedAnswer answer(&problem);
-		cerr << answer.overall_score() << endl;
+		// cerr << answer.overall_score() << endl;
 		
 	
 		if( configuration.visualize_mode ) answer.draw(problem,colors);
@@ -83,10 +85,10 @@ public:
 				}
 				
 				if( configuration.visualize_mode ) answer.draw(problem,colors);
-				// cerr << answer.overall_score() << endl;
+				// cerr << answer.overall_score() << " "  << NaiveScoring::overall_score(problem,answer) << endl;
 			}
 		}
-		cerr << answer.overall_score() << " " << answer.overall_score_rough() << endl;
+		// cerr << answer.overall_score() << " " << answer.overall_score_rough() << endl;
 		return answer;
 	}
 };
