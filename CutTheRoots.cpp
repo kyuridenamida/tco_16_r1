@@ -1,5 +1,29 @@
 ﻿#include "classes_for_tco.cpp"
 #include <cstdio>
+
+const double TIME_LIMIT = 9.6;
+namespace MyTimer{
+	unsigned long long int cycle_per_sec = 2500000000;
+	unsigned long long int beginCycle;
+	unsigned long long int getCycle()
+	{
+	  unsigned int low, high;
+	  __asm__ volatile ("rdtsc" : "=a" (low), "=d" (high));
+	  return ((unsigned long long int)low) | ((unsigned long long int)high << 32);
+	}
+	double nowTime()
+	{
+	  return (double)(getCycle() - beginCycle) / cycle_per_sec;
+	}
+	void resetTimer(){
+		beginCycle = getCycle();
+	}
+	bool isTLE(double limit){
+		return nowTime() >= limit;
+	}
+};
+using namespace MyTimer;
+
 struct Configuration{
 	bool visualize_mode;
 	Configuration(){
@@ -10,15 +34,25 @@ class CutTheRoots {
 public:
 	
     vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
-		srand(time(NULL));
-		//cout << intersectLS(L(P(0,0),P(100,0)),L(P(1,0),P(2,0))) << endl;
+		resetTimer();
+		
 		Problem problem(NP,points,roots);
-		//cerr << NaiveScoring::overall_score(problem,{}) << endl;
-		Answer answer = greedy1(problem);
+		double current = -1e9;
+		Answer res_ans;
+		while( nowTime() < TIME_LIMIT ){
+			//cerr << NaiveScoring::overall_score(problem,{}) << endl;
+			ExtendedAnswer answer = greedy1(problem);
+			if( nowTime() < TIME_LIMIT ){
+				if( answer.overall_score() > current ){
+					res_ans = answer;
+					current = answer.overall_score();
+				}
+			}
+		}
 		// cerr << NaiveScoring::overall_score(problem,answer) << endl;
-        return answer.to_vector();
+        return res_ans.to_vector();
     }
-	Answer greedy1(Problem &problem){
+	ExtendedAnswer greedy1(Problem &problem){
 		vector<RGB> colors;
 		for(int i = 0 ; i < problem.trees.size() ; i++) colors.push_back(RGB::random());
 		int N = problem.trees.size();
@@ -54,10 +88,15 @@ public:
 				vector<pair<double,L>> cand;
 				double cur = answer.overall_score();
 				for(int m = 1 ; m < 10 ; m++){
-					P mp = p1 + (p2-p1) * (double)(m/10.);
-					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
 					for(int k = 0 ; k < 19 ; k++){
-						P vec = (p1-p2) * exp(P(0,PI*k/19));
+						if( nowTime() > TIME_LIMIT ){
+							return answer;
+						}
+						double A = 1. * rand() / RAND_MAX;
+						double B = 1. * rand() / RAND_MAX;
+						P mp = p1 + (p2-p1) * A;
+					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
+						P vec = (p1-p2) * exp(P(0,PI*B));
 						L l = L(mp,mp+vec);
 						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
 							double loss = cur - answer.overall_score(l);

@@ -200,6 +200,19 @@ double area2(const G& poly) {
 	return A;
 }
 // 凸包を求める O(n log n)
+vector<P> convex_hull2(vector<P> ps) {
+  if( ps.size() < 3 ) return ps;
+  int n = ps.size(), k = 0;
+  sort(ps.begin(), ps.end());
+
+  vector<P> ch(2*n);
+  for (int i = 0; i < n; ch[k++] = ps[i++]) // lower-hull
+    while (k >= 2 && ccw(ch[k-2], ch[k-1], ps[i]) <= 0) --k;
+  for (int i = n-2, t = k+1; i >= 0; ch[k++] = ps[i--]) // upper-hull
+    while (k >= t && ccw(ch[k-2], ch[k-1], ps[i]) <= 0) --k;
+  ch.resize(k-1);
+  return ch;
+}
 vector<P> convex_hull(vector<P> ps) {
   int n = ps.size(), k = 0;
   while( ps.size() < 3 )
@@ -298,22 +311,26 @@ struct Circle{
   static Circle minEnclosingCircle(vector<P>ps){
     if(ps.size()==0) return Circle(P(0,0),0,{});
     if(ps.size()==1) return Circle(ps[0],0,{ps[0]});
-
+	if(ps.size()==2){
+		Circle c = circumCircle(ps[0],ps[1]);
+		c.ps = {ps[0],ps[1]};
+		return c;
+	}
+    Circle circle=circumscribedCircle(ps[0],ps[1],ps[2]);
+	circle.ps = {ps[0],ps[1],ps[2]};
 	
-	
-    Circle circle=circumCircle(ps[0],ps[1]);
-	circle.ps = {ps[0],ps[1]};
     for(int i=2;i<ps.size();i++){
       if(!circle.contain(ps[i])){
-			circle=circumCircle(ps[0],ps[i]);
-			circle.ps = {ps[0],ps[i]};
+			circle=circumscribedCircle(ps[0],ps[1],ps[i]);
+			circle.ps = {ps[0],ps[1],ps[i]};
 			for(int j=1;j<i;j++){
 			  if(!circle.contain(ps[j])){
-				circle=circumCircle(ps[j],ps[i]);
+				circle=circumscribedCircle(ps[0],ps[j],ps[i]);
+				circle.ps = {ps[0],ps[j],ps[i]};
 				for(int k=0;k<j;k++){
 				  if(!circle.contain(ps[k])){
-				circle=circumscribedCircle(ps[i],ps[j],ps[k]);
-				circle.ps = {ps[i],ps[j],ps[k]};
+					circle=circumscribedCircle(ps[i],ps[j],ps[k]);
+					circle.ps = {ps[i],ps[j],ps[k]};
 				  }
 				}
 			  }

@@ -66,7 +66,7 @@ def run_program(seed):
 		return []
 	
 seeds = range(1, 101)
-p = Pool(processes=4)
+p = Pool(processes=8)
 results = p.map(run_program, seeds)
 for res in results:
 	#print(",".join(map(str,res)))

@@ -68,21 +68,30 @@ public:
 			}
 		}
 		init_dfs(root);
+		// for( auto t : position ){
+			// cerr << abs(mec[0].p - t ) << " " << mec[0].r + EPS << endl;
+			// assert( abs(mec[0].p - t ) < mec[0].r + EPS );
+		// }
 	}
 private:
-	void init_dfs(int x){
+	vector<P> init_dfs(int x){
 		tot_sum_of_tree[x] = 0.0;
 		vector<P> ps;
 		ps.push_back(position[x]);
+		
 		for( auto c : child[x] ){
-			init_dfs(c);
+			vector<P> X = init_dfs(c);
 			tot_sum_of_tree[x] += tot_sum_of_tree[c];// + length_between_parent[c];
-			ps.insert(ps.end(),mec[c].ps.begin(),mec[c].ps.end());
+			ps.insert(ps.end(),X.begin(),X.end());
 		}
+	
+		
+		ps = convex_hull2(ps);
 		mec[x] = Circle::minEnclosingCircle(ps);
 		tot_sum_of_tree[x] += length_between_parent[x];
 		// cerr << tot_sum_of_tree[x] << endl;
 		//cerr << ps.size() << endl;
+		return ps;
 	}
 };
 
@@ -196,6 +205,7 @@ public:
 			MEMO_score_of_tree.push_back(tree.tot_sum_of_tree[0]);
 			current_weight.push_back(vector<double>(tree.n,-1.0));
 			already_cut.push_back(vector<bool>(tree.n,false));
+			inner_init_dfs_score_of_tree(tree.root,tree);
 			
 		}
 		// cerr << all_total << "<" << endl;
@@ -334,14 +344,22 @@ public:
 
 	vector< vector<double> > current_weight;
 	vector< vector<bool> > already_cut;
+	
+	double inner_init_dfs_score_of_tree(int x,const Tree &tree){
+		double sum = 0;
+		for( auto c : tree.child[x] ){
+			sum += inner_init_dfs_score_of_tree(c,tree);
+		}	
+		return current_weight[tree.id][x] = sum + tree.length_between_parent[x];
+	}
+	
 	double inner_dfs_score_of_tree(int x,const Tree &tree,const L &line,bool reflesh){
 		
 		// if( distanceLP(line,mecs[tree.id].p) > mecs[tree.id].r + EPS ){
-		if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r + EPS ){
-			if( current_weight[tree.id][x] != -1.0 ){
-				return current_weight[tree.id][x];
-			}
+		if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r + 100*EPS ){
+			return current_weight[tree.id][x];
 		}
+
 		// cerr <<  already_cut[tree.id][x] << endl;
 		if( already_cut[tree.id][x] ) return current_weight[tree.id][x];
 
@@ -361,6 +379,7 @@ public:
 				sum += inner_dfs_score_of_tree(c,tree,line,reflesh);			
 			}
 		}
+		
 		double res = sum + tree.length_between_parent[x];
 		if( reflesh ){
 			current_weight[tree.id][x] = res;
