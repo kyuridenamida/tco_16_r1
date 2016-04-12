@@ -22,8 +22,10 @@ public:
 		for(int i = 0 ; i < problem.trees.size() ; i++) colors.push_back(RGB::random());
 		int N = problem.trees.size();
 		ExtendedAnswer answer(&problem);
-		if( configuration.visualize_mode ) answer.draw(problem,colors);
+		cerr << answer.overall_score() << endl;
 		
+	
+		if( configuration.visualize_mode ) answer.draw(problem,colors);
 		vector<pair<double,pair<int,int>>> pairs;
 		for(int i = 0 ; i < N ; i++){
 			for(int j = i+1; j < N ; j++){
@@ -50,29 +52,21 @@ public:
 			if( !separated ){
 				vector<pair<double,L>> cand;
 				double cur = answer.overall_score();
-				for(int m = 1 ; m < 5 ; m++){
-					double lll = INF;
-					P mp = p1 + (p2-p1) * (double)(m/5.);
+				for(int m = 1 ; m < 10 ; m++){
+					P mp = p1 + (p2-p1) * (double)(m/10.);
 					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
-					for(int k = 0 ; k < 11 ; k++){
-						P vec = (p1-p2) * exp(P(0,PI*k/11));
+					for(int k = 0 ; k < 19 ; k++){
+						P vec = (p1-p2) * exp(P(0,PI*k/19));
 						L l = L(mp,mp+vec);
-						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){						
-							ExtendedAnswer copied_answer = answer;
-							copied_answer.add_line(l);
-							double loss = cur - copied_answer.overall_score();
-							// printf("%5.0lf ",loss);
-							lll = min(lll,loss);
+						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
+							double loss = cur - answer.overall_score(l);
 							//cerr << loss << endl;
 							cand.push_back({loss,l});
 						}
 					}
 					// cerr << endl;
-
 				}
-				//cerr << "OK" << endl;
 				// cerr << endl;
-
 				sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
 					return a.first < b.first;
 					
@@ -80,14 +74,19 @@ public:
 				for(int i = 0 ; i < cand.size() ; i++){
 					L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
 					if( fix_l[0] != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
+							// double loss = answer.overall_score() - answer.overall_score(fix_l);
+							// cerr << loss -  cand[0].first << endl;
 							answer.add_line(fix_l);
+							
 							break;
 					}
 				}
 				
 				if( configuration.visualize_mode ) answer.draw(problem,colors);
+				// cerr << answer.overall_score() << endl;
 			}
 		}
+		cerr << answer.overall_score() << " " << answer.overall_score_rough() << endl;
 		return answer;
 	}
 };

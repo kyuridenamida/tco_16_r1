@@ -26,6 +26,7 @@ public:
 	vector<Edge> es;
 	vector<P> position;
 	int root;
+	vector<Circle> mec;
 	vector<P> convex_polygon;
 	vector<vector<int>> child;
 	vector<int> parent;
@@ -41,7 +42,8 @@ public:
 		depth = vector<int>(n);
 		child = vector<vector<int>>(n);
 		tot_sum_of_tree = length_between_parent = vector<double>(n,0);
-
+		mec =  vector<Circle>(n,Circle(P(0,0),-1));
+		
 		vector<vector<int>> g(n);
 		for( auto e : es ){
 			g[e.src].push_back(e.dst);
@@ -59,22 +61,27 @@ public:
 			depth[x] = d;
 			for( auto e : g[x] ){
 				if( e != p ){
-					length_between_parent[e] = abs(position[e]-position[p]);
+					length_between_parent[e] = abs(position[e]-position[x]);
 					S.push(array<int,3>{e,x,d+1});
 					child[x].push_back(e);
 				}
 			}
 		}
-		
-		
 		init_dfs(root);
 	}
 private:
 	void init_dfs(int x){
+		tot_sum_of_tree[x] = 0.0;
+		vector<P> ps;
+		ps.push_back(position[x]);
 		for( auto c : child[x] ){
 			init_dfs(c);
-			tot_sum_of_tree[x] += tot_sum_of_tree[c] + abs(position[x]-position[c]);
+			tot_sum_of_tree[x] += tot_sum_of_tree[c];// + length_between_parent[c];
+			ps.insert(ps.end(),mec[c].ps.begin(),mec[c].ps.end());
 		}
+		mec[x] = Circle::minEnclosingCircle(ps);
+		tot_sum_of_tree[x] += length_between_parent[x];
+		// cerr << tot_sum_of_tree[x] << endl;
 	}
 };
 
@@ -176,9 +183,11 @@ public:
 
 
 	vector<Circle> mecs;
-	L unprocessed_line = null_line;
 	ExtendedAnswer(Problem *problem) : problem(problem){
+		double all_total = 0;
 		for(const auto &tree : problem->trees ){
+			all_total += tree.tot_sum_of_tree[0];
+			// cerr << tree.tot_sum_of_tree[0] << "<" << endl;
 			original_area.push_back(area2(tree.convex_polygon));
 			convex_polygon.push_back(tree.convex_polygon);
 			mecs.push_back(Circle::minEnclosingCircle(tree.convex_polygon));
@@ -186,17 +195,22 @@ public:
 			MEMO_score_of_tree.push_back(tree.tot_sum_of_tree[0]);
 			current_weight.push_back(vector<double>(tree.n,-1.0));
 			already_cut.push_back(vector<bool>(tree.n,false));
-					
+			
 		}
+		// cerr << all_total << "<" << endl;
+		MEMO_overall_score_rough = MEMO_overall_score = all_total;
 		
 	}
-	
+	void add_line(const L &line){
+		lines.push_back(line);
+		overall_score_rough(line,true);
+		overall_score(line,true);
+	}
 	
 	vector<double> MEMO_score_of_tree_rough;
 	
-	double score_of_tree_rough(const Tree &tree,const L &l){
+	double score_of_tree_rough(const Tree &tree,const L &l,bool reflesh){
 		if( distanceLP(l,mecs[tree.id].p) > mecs[tree.id].r + EPS ){
-			// cerr << mecs[tree.id].r << " " << distanceLP(l,mecs[tree.id].p) << endl;
 			return MEMO_score_of_tree_rough[tree.id];
 		}
 		double all_area = original_area[tree.id];
@@ -204,29 +218,37 @@ public:
 		G& cut_g = convex_polygon[tree.id];
 		if( cut_g.size() == 0 ) return MEMO_score_of_tree_rough[tree.id] = 0;
 		auto g1 = convex_cut(cut_g,l);
+		G next_cut_g;
 		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
-			cut_g = g1;
+			next_cut_g = g1;
 		}else{
 			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
-			cut_g = g2;
+			next_cut_g = g2;
 		}
-		mecs[tree.id] = Circle::minEnclosingCircle(cut_g);
-		double sub_area =  area2(cut_g);
+		double sub_area =  area2(next_cut_g);
+		double res = (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
 		
-		return MEMO_score_of_tree_rough[tree.id] = (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
+		if( reflesh ) {
+			cut_g = next_cut_g;
+			mecs[tree.id] = Circle::minEnclosingCircle(next_cut_g);
+			MEMO_score_of_tree_rough[tree.id] = res;
+		}
+		return res;
 	}
 	
-	double MEMO_overall_score_rough;
-	double overall_score_rough(){
-		if( unprocessed_line == null_line ){
+	double MEMO_overall_score_rough ;
+	double overall_score_rough(const L &l = null_line,bool reflesh=false){
+		if( l == null_line ){
 			return MEMO_overall_score_rough;
 		}
 		double sum = 0;
 		for(const auto &tree : problem->trees ){
-			sum += score_of_tree_rough(tree,unprocessed_line);
+			sum += score_of_tree_rough(tree,l,reflesh);
 		}
-		unprocessed_line = null_line;
-		return MEMO_overall_score_rough = sum;
+		if( reflesh ){
+			MEMO_overall_score_rough = sum;
+		}
+		return sum;
 	}
 	
 
@@ -281,72 +303,72 @@ public:
 		}
 		cout << "END" << endl;
 	}
-	
-	void add_line(const L &line){
-		assert( unprocessed_line == null_line );
-		unprocessed_line = line;
-		lines.push_back(line);
-	}
 
 
 	vector<double> MEMO_score_of_tree;
 
-	double score_of_tree(const Tree &tree,const L &l){
+	double score_of_tree(const Tree &tree,const L &l,bool reflesh=true){
 		if( distanceLP(l,tree.position[0]) > mecs[tree.id].r + EPS ){
 			return MEMO_score_of_tree[tree.id];
 		}
-		return MEMO_score_of_tree[tree.id] = inner_dfs_score_of_tree(tree.root,tree,l);
+		double res = inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
+		if( reflesh ){
+			MEMO_score_of_tree[tree.id] = res;
+		}
+		return res;
 	}
 
 
 	double MEMO_overall_score;
-	double overall_score(){
-		if( unprocessed_line == null_line )
+	double overall_score(const L &l = null_line,bool reflesh=false){
+		if( l == null_line )
 			return MEMO_overall_score;
 
 		double sum = 0;
 		for( const auto &tree : problem->trees ){
-			sum += score_of_tree(tree,unprocessed_line);
+			sum += score_of_tree(tree,l,reflesh);
 		}
-		unprocessed_line = null_line;
-		return MEMO_overall_score = sum;
+		if( reflesh ){
+			MEMO_overall_score = sum;
+		}
+		return sum;
 	}
 
 	vector< vector<double> > current_weight;
 	vector< vector<bool> > already_cut;
-	double inner_dfs_score_of_tree(int x,const Tree &tree,const L &line){
-		// if( distanceLP(line,tree.position[0]) > mecs[tree.id].r + EPS ){
-			
-		// 	if( current_weight[tree.id][x] != -1.0 ){
-
-		// 		return current_weight[tree.id][x];
-		// 	}
-		// }
+	double inner_dfs_score_of_tree(int x,const Tree &tree,const L &line,bool reflesh){
+		
+		// if( distanceLP(line,mecs[tree.id].p) > mecs[tree.id].r + EPS ){
+		if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r + EPS ){
+			if( current_weight[tree.id][x] != -1.0 ){
+				return current_weight[tree.id][x];
+			}
+		}
+		// cerr <<  already_cut[tree.id][x] << endl;
 		if( already_cut[tree.id][x] ) return current_weight[tree.id][x];
 
 
 		double sum = 0;
 		for( auto c : tree.child[x] ){
 			// ここ前計算で114514倍くらい速くなると思う
-			double cut_dist = INF;
 			if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
 				P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
-				cut_dist = min(cut_dist,abs(cp-tree.position[x]));
-				already_cut[tree.id][c] = true;
-				current_weight[tree.id][c] = cut_dist;
+				double cut_dist = abs(cp-tree.position[x]);
+				if( reflesh ){
+					already_cut[tree.id][c] = true;
+					current_weight[tree.id][c] = cut_dist;
+				}
+				sum += cut_dist;
+			}else{
+				sum += inner_dfs_score_of_tree(c,tree,line,reflesh);			
 			}
-			sum += inner_dfs_score_of_tree(c,tree,line);			
 		}
-		return current_weight[tree.id][x] = sum + tree.length_between_parent[x];
+		double res = sum + tree.length_between_parent[x];
+		if( reflesh ){
+			current_weight[tree.id][x] = res;
+		}
+		return res;
 	}
-
-};
-
-
-
-class NaiveScoring{
-public:
-
 
 };
 

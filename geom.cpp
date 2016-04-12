@@ -270,8 +270,11 @@ vector<P> crosspointCL(const L l, const C c){
 struct Circle{
   P p;
   double r;
+  vector<P> ps;
   Circle(){}
   Circle(P p, double r) : p(p) , r(r){}
+  Circle(P p, double r,vector<P> ps) : p(p) , r(r), ps(ps) {}
+  
   
   bool contain(P a){
     return norm(a-p) <= r * r;
@@ -293,23 +296,28 @@ struct Circle{
   }
 
   static Circle minEnclosingCircle(vector<P>ps){
-    if(ps.size()==0)return Circle(P(0,0),0);
-    if(ps.size()==1)return Circle(ps[0],0);
+    if(ps.size()==0) return Circle(P(0,0),0,{});
+    if(ps.size()==1) return Circle(ps[0],0,{ps[0]});
 
+	
+	
     Circle circle=circumCircle(ps[0],ps[1]);
+	circle.ps = {ps[0],ps[1]};
     for(int i=2;i<ps.size();i++){
       if(!circle.contain(ps[i])){
-	circle=circumCircle(ps[0],ps[i]);
-	for(int j=1;j<i;j++){
-	  if(!circle.contain(ps[j])){
-	    circle=circumCircle(ps[j],ps[i]);
-	    for(int k=0;k<j;k++){
-	      if(!circle.contain(ps[k])){
-		circle=circumscribedCircle(ps[i],ps[j],ps[k]);
-	      }
-	    }
-	  }
-	}
+			circle=circumCircle(ps[0],ps[i]);
+			circle.ps = {ps[0],ps[i]};
+			for(int j=1;j<i;j++){
+			  if(!circle.contain(ps[j])){
+				circle=circumCircle(ps[j],ps[i]);
+				for(int k=0;k<j;k++){
+				  if(!circle.contain(ps[k])){
+				circle=circumscribedCircle(ps[i],ps[j],ps[k]);
+				circle.ps = {ps[i],ps[j],ps[k]};
+				  }
+				}
+			  }
+			}
       }
     }
     return circle;
