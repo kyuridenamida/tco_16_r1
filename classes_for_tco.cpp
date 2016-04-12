@@ -112,7 +112,7 @@ public:
 				vector<P> position(relabel.size());
 				for( auto r : relabel )
 					position[r.second] = id_to_pos[r.first];
-				trees.push_back(Tree(trees.size(),points.size(),es,position,0));
+				trees.push_back(Tree(trees.size(),position.size(),es,position,0));
 			}
 		}
 		assert( trees.size() == NP );

@@ -19,7 +19,6 @@ public:
         return answer.to_vector();
     }
 	Answer greedy1(Problem &problem){
-		return {};
 		vector<RGB> colors;
 		for(int i = 0 ; i < problem.trees.size() ; i++) colors.push_back(RGB::random());
 		int N = problem.trees.size();
