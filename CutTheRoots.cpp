@@ -48,6 +48,7 @@ public:
 					current = answer.overall_score();
 				}
 			}
+			// break;
 		}
 		// cerr << NaiveScoring::overall_score(problem,answer) << endl;
         return res_ans.to_vector();
@@ -87,22 +88,21 @@ public:
 			if( !separated ){
 				vector<pair<double,L>> cand;
 				double cur = answer.overall_score();
-				for(int m = 1 ; m < 10 ; m++){
-					for(int k = 0 ; k < 19 ; k++){
-						if( nowTime() > TIME_LIMIT ){
-							return answer;
-						}
-						double A = 1. * rand() / RAND_MAX;
-						double B = 1. * rand() / RAND_MAX;
-						P mp = p1 + (p2-p1) * A;
-					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
-						P vec = (p1-p2) * exp(P(0,PI*B));
-						L l = L(mp,mp+vec);
-						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
-							double loss = cur - answer.overall_score(l);
-							//cerr << loss << endl;
-							cand.push_back({loss,l});
-						}
+				for(int m = 0 ; m < 1800 / problem.trees.size() ; m++){
+					if( nowTime() > TIME_LIMIT ){
+						
+						return answer;
+					}
+					double A = 1. * xor64() / (unsigned int)(-1);
+					double B = 1. * xor64() / (unsigned int)(-1);
+					P mp = p1 + (p2-p1) * A;
+				// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
+					P vec = (p1-p2) * exp(P(0,PI*B));
+					L l = L(mp,mp+vec);
+					if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
+						double loss = cur - answer.overall_score(l);
+						//cerr << loss << endl;
+						cand.emplace_back(loss,l);
 					}
 					// cerr << endl;
 				}
@@ -126,8 +126,47 @@ public:
 				// cerr << answer.overall_score() << " "  << NaiveScoring::overall_score(problem,answer) << endl;
 			}
 		}
+		for(int i = 0 ; i < answer.lines.size() ; ){
+			vector<L> ls;
+			for(int j = 0 ; j < answer.lines.size() ; j++)
+				if( i != j ) ls.push_back(answer.lines[j]);
+			bool f = true;
+			for(int j = 0 ; j < N ; j++){
+				for(int k = j+1 ; k < N ; k++){
+					P p1 = problem.trees[j].position[problem.trees[j].root];
+					P p2 = problem.trees[k].position[problem.trees[k].root];
+					bool separated = false;
+					for( auto l : ls ){
+						if( GeomUtils::is_separating(l,p1,p2) ){
+							separated = true;
+							break;
+						}
+					}
+					if( !separated ) {
+						f = false;
+						break;
+					}
+				}
+				if( !f ) break;
+			}
+			if( f ) {
+				answer.lines.erase(answer.lines.begin()+i);
+				cerr << "OK" << endl;
+			}else i++;
+		}
+		// for( auto &tree : problem.trees ){
+			// cerr << answer.score_of_tree(tree) / tree.tot_sum_of_tree[tree.root] << "|" <<  answer.score_of_tree(tree) << "/" << tree.tot_sum_of_tree[tree.root] <<  endl;
+		// }
+		cerr << nowTime() << endl;
 		// cerr << answer.overall_score() << " " << answer.overall_score_rough() << endl;
-		return answer;
+		
+		ExtendedAnswer output(&problem);
+		for(int i = 0 ; i < answer.lines.size() ; i++){
+			output.add_line(answer.lines[i]);
+		}
+		// cerr << output.overall_score() << endl;
+		
+		return output;
 	}
 };
 #ifdef LOCAL

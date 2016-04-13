@@ -18,13 +18,13 @@ namespace std {
 		return real(a) != real(b) ? real(a) < real(b) : imag(a) < imag(b);
 	} 
 }
-double cross(P a,P b) { return imag(conj(a)*b); }
-double dot(P a,P b) { return real(conj(a)*b);}
+inline double cross(const P &a,const P &b) { return a.real() * b.imag() - a.imag() * b.real(); }
+inline double dot(const P &a,P const &b) { return a.real() * b.real() + a.imag() * b.imag(); }
 
 //直線
 struct L : public vector<P> {
-	L(P a,P b) {
-		push_back(a); push_back(b);
+	L(const P &a,const P &b) {
+		emplace_back(a); emplace_back(b);
 	}
 };
 
@@ -72,8 +72,33 @@ P reflection(const L &l, const P &p) {
 	return p + (double)2.0 * (projection(l, p) - p);
 }
 
+
+inline double distanceLP_check(const L &l, const P &p,const double &r) {
+	//^2
+	double X0 = l[0].real();
+	double Y0 = l[0].imag();
+	double X1 = l[1].real();
+	double Y1 = l[1].imag();
+	double a = (Y1-Y0);
+	double b = (X0-X1);
+	double c = Y0 * (X1-X0) + X0 * (Y0-Y1);
+	return (a*p.real()+b*p.imag()+c)*(a*p.real()+b*p.imag()+c) > r * r * (a*a+b*b) + EPS;
+}
+
 double distanceLP(const L &l, const P &p) {
-	return abs(p - projection(l, p));
+	assert(false);
+	//^2
+	double X0 = l[0].real();
+	double Y0 = l[0].imag();
+	double X1 = l[1].real();
+	double Y1 = l[1].imag();
+	double a = (Y1-Y0);
+	double b = (X0-X1);
+	double c = Y0 * (X1-X0) + X0 * (Y0-Y1);
+	
+	// cerr << (a*p.real()+b*p.imag()+c)*(a*p.real()+b*p.imag()+c) / (a*a+b*b) << " " << norm(p - projection(l, p)) << endl;
+	return (a*p.real()+b*p.imag()+c)*(a*p.real()+b*p.imag()+c) / (a*a+b*b);
+	// return abs(p - projection(l, p));
 }
 double distanceLL(const L &l, const L &m) {
 	return intersectLL(l, m) ? 0 : distanceLP(l, m[0]);

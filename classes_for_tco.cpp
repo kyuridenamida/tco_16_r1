@@ -12,6 +12,11 @@ using namespace std;
 const P null_point = P(-1,-1);
 const L null_line = L(null_point,null_point);
 
+uint32_t xor64(void) {
+  static uint64_t x = 88172645463325252ULL;
+  x = x ^ (x << 13); x = x ^ (x >> 7);
+  return x = x ^ (x << 17);
+}
 
 struct Edge{
 	int src,dst;
@@ -318,7 +323,9 @@ public:
 
 	vector<double> MEMO_score_of_tree;
 
-	double score_of_tree(const Tree &tree,const L &l,bool reflesh=true){
+	double score_of_tree(const Tree &tree,const L &l = null_line,bool reflesh=true){
+		if( l == null_line )
+			return MEMO_score_of_tree[tree.id];
 		double res = inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
 		if( reflesh ){
 			MEMO_score_of_tree[tree.id] = res;
@@ -356,7 +363,9 @@ public:
 	double inner_dfs_score_of_tree(int x,const Tree &tree,const L &line,bool reflesh){
 		
 		// if( distanceLP(line,mecs[tree.id].p) > mecs[tree.id].r + EPS ){
-		if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r + 100*EPS ){
+		if( distanceLP_check(line,tree.mec[x].p,tree.mec[x].r) ){
+		// if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r * tree.mec[x].r  + 100*EPS ){
+		//if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r *  + 100*EPS ){
 			return current_weight[tree.id][x];
 		}
 
@@ -367,6 +376,7 @@ public:
 		double sum = 0;
 		for( auto c : tree.child[x] ){
 			// ここ前計算で114514倍くらい速くなると思う
+			
 			if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
 				P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
 				double cut_dist = min( current_weight[tree.id][c], abs(cp-tree.position[x]) );
