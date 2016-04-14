@@ -1,7 +1,7 @@
 ﻿#include "classes_for_tco.cpp"
 #include <cstdio>
 
-const double TIME_LIMIT = 9.8;
+const double TIME_LIMIT = 10;
 namespace MyTimer{
 	unsigned long long int cycle_per_sec = 2500000000;
 	unsigned long long int beginCycle;
@@ -72,16 +72,18 @@ public:
 			}
 		}
 		
-		sort(pairs.begin(),pairs.end());
+		srand(time(NULL));
+		random_shuffle(pairs.begin(),pairs.end());
 		
 		
 		ExtendedAnswer final_answer(&problem);
 		double currentScore = -1;
 		
+		vector<double> maximum_ratios(N,0.0);
 		while(true){
 			ExtendedAnswer answer(&problem);
 			random_shuffle(final_answer.lines.begin(),final_answer.lines.end());
-			for(int i = 0 ; i < final_answer.lines.size() * 8 / 10 ; i++){
+			for(int i = 0 ; i < final_answer.lines.size() * 0 / 10 ; i++){
 				answer.add_line(final_answer.lines[i]);
 			}
 			
@@ -101,7 +103,7 @@ public:
 				if( !separated ){
 					vector<pair<double,L>> cand;
 					double cur = answer.overall_score();
-					for(int m = 0 ; m < 80000 / problem.trees.size() ; m++){
+					for(int m = 0 ; m < 20000 / problem.trees.size() ; m++){
 						if( nowTime() > TIME_LIMIT ){
 							
 							return final_answer;
@@ -179,6 +181,15 @@ public:
 				currentScore = hogehoge.overall_score();
 				cerr << currentScore << endl;
 			}
+			Utils::reflesh_max(maximum_ratios,answer.get_ratio());
+			double sum = 0;
+			for(int i = 0 ; i < N ; i++){
+				sum +=  maximum_ratios[i] * problem.trees[i].tot_sum_of_tree[0] ;
+				cerr << maximum_ratios[i] * problem.trees[i].tot_sum_of_tree[0] << endl;
+			}
+			cerr << sum << endl;
+			cerr << "---" << endl;
+			
 			cerr << nowTime() << endl;
 			random_shuffle(pairs.begin(),pairs.end());
 		}

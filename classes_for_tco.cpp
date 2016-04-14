@@ -9,6 +9,12 @@
 using namespace std;
 #include "geom.cpp"
 
+namespace Utils{
+	void reflesh_max(vector<double> &a,const vector<double> &b){
+		for(int i = 0 ; i < a.size() ; i++)
+			a[i] = max(a[i],b[i]);
+	}
+};
 const P null_point = P(-1,-1);
 const L null_line = L(null_point,null_point);
 
@@ -77,12 +83,7 @@ public:
 			}
 		}
 		init_dfs(root);
-		// for( auto t : position ){
-			// cerr << abs(mec[0].p - t ) << " " << mec[0].r + EPS << endl;
-			// assert( abs(mec[0].p - t ) < mec[0].r + EPS );
-		// }
 	}
-private:
 	vector<P> init_dfs(int x){
 		tot_sum_of_tree[x] = 0.0;
 		vector<P> ps;
@@ -193,6 +194,7 @@ public:
 };
 
 
+
 class ExtendedAnswer : public Answer{
 public:
 	Problem* problem;
@@ -202,6 +204,8 @@ public:
 
 	//2387500
 	vector<Circle> mecs;
+	
+
 	ExtendedAnswer(Problem *problem) : problem(problem){
 		double all_total = 0;
 		for(const auto &tree : problem->trees ){
@@ -396,6 +400,15 @@ public:
 		}
 		return res;
 	}
+	vector<double> get_ratio(){
+		vector<double> res;
+		for( const auto &tree : problem->trees ){
+			res.push_back(score_of_tree(tree) / tree.tot_sum_of_tree[0]);
+			//cerr << tree.id << "|" << score_of_tree(tree) / tree.tot_sum_of_tree[0] << "|" << score_of_tree(tree)  << "/" <<  tree.tot_sum_of_tree[0] << endl;
+		}
+		//cerr << "--------" << endl;
+		return res;
+	}
 
 };
 
@@ -496,6 +509,35 @@ private:
 	}
 
 };
+
+void inner_dfs_remaked_tree(int x,int bit,Tree &tree,const vector<ExtendedAnswer> &answers){
+	for(int i = 0 ; i < answers.size() ; i++){
+		if( answers[i].already_cut[tree.id][x] ) bit |= 1 << i;	
+	}
+	if( bit == (1<<answers.size()) - 1 ){
+		cerr << "><" << "cut" << endl;
+		tree.child[x].clear();
+		return;
+	}
+	
+	for( auto c : tree.child[x] ){
+		inner_dfs_remaked_tree(x,bit,tree,answers);
+	}
+	
+	return;
+}
+void remake_tree(Tree &tree, const vector<ExtendedAnswer> &answers){
+	assert( answers.size() <= 32 );
+	tree.init_dfs(0);
+	
+}
+Problem* remake_trees(Problem *problem,const vector<ExtendedAnswer> &answers){
+	Problem* new_prob = new Problem(*problem);
+	for(int i = 0 ; i < new_prob->trees.size() ; i++){
+		remake_tree(new_prob->trees[i],answers);
+	}
+	return new_prob;
+}
 
 
 class GeomUtils{
