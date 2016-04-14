@@ -34,6 +34,7 @@ public:
 	vector<Circle> mec;
 	vector<P> convex_polygon;
 	vector<vector<int>> child;
+	vector<vector<L>> child_line;
 	vector<int> parent;
 	vector<int> depth;
 	vector<double> length_between_parent;
@@ -46,6 +47,7 @@ public:
 		parent = vector<int>(n,-1);
 		depth = vector<int>(n);
 		child = vector<vector<int>>(n);
+		child_line = vector<vector<L>>(n);
 		tot_sum_of_tree = length_between_parent = vector<double>(n,0);
 		mec =  vector<Circle>(n,Circle(P(0,0),-1));
 		
@@ -66,9 +68,11 @@ public:
 			depth[x] = d;
 			for( auto e : g[x] ){
 				if( e != p ){
+					
 					length_between_parent[e] = abs(position[e]-position[x]);
 					S.push(array<int,3>{e,x,d+1});
 					child[x].push_back(e);
+					child_line[x].push_back(L(position[x],position[e]));
 				}
 			}
 		}
@@ -196,7 +200,7 @@ public:
 	vector<G> convex_polygon;
 	vector<double> original_area;
 
-
+	//2387500
 	vector<Circle> mecs;
 	ExtendedAnswer(Problem *problem) : problem(problem){
 		double all_total = 0;
@@ -356,29 +360,25 @@ public:
 		double sum = 0;
 		for( auto c : tree.child[x] ){
 			sum += inner_init_dfs_score_of_tree(c,tree);
-		}	
+		}
 		return current_weight[tree.id][x] = sum + tree.length_between_parent[x];
 	}
 	
 	double inner_dfs_score_of_tree(int x,const Tree &tree,const L &line,bool reflesh){
 		
-		// if( distanceLP(line,mecs[tree.id].p) > mecs[tree.id].r + EPS ){
 		if( distanceLP_check(line,tree.mec[x].p,tree.mec[x].r) ){
-		// if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r * tree.mec[x].r  + 100*EPS ){
-		//if( distanceLP(line,tree.mec[x].p) > tree.mec[x].r *  + 100*EPS ){
 			return current_weight[tree.id][x];
 		}
-
-		// cerr <<  already_cut[tree.id][x] << endl;
 		if( already_cut[tree.id][x] ) return current_weight[tree.id][x];
 
 
 		double sum = 0;
-		for( auto c : tree.child[x] ){
-			// ここ前計算で114514倍くらい速くなると思う
+		for(int i = 0 ; i < tree.child[x].size() ; i++){
+			const int &c = tree.child[x][i];
+			const L &cline = tree.child_line[x][i];
 			
-			if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
-				P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
+			if( intersectLS(line,cline) ){
+				P cp = crosspoint(line,cline);
 				double cut_dist = min( current_weight[tree.id][c], abs(cp-tree.position[x]) );
 				if( reflesh ){
 					already_cut[tree.id][c] = true;
