@@ -22,9 +22,10 @@ inline double cross(const P &a,const P &b) { return a.real() * b.imag() - a.imag
 inline double dot(const P &a,P const &b) { return a.real() * b.real() + a.imag() * b.imag(); }
 
 //直線
-struct L : public vector<P> {
+struct L : public array<P,2> {
 	L(const P &a,const P &b) {
-		emplace_back(a); emplace_back(b);
+		(*this)[0] = a;
+		(*this)[1] = b;
 	}
 };
 

@@ -1,7 +1,7 @@
 ﻿#include "classes_for_tco.cpp"
 #include <cstdio>
 
-const double TIME_LIMIT = 10;
+const double TIME_LIMIT = 9.8;
 namespace MyTimer{
 	unsigned long long int cycle_per_sec = 2500000000;
 	unsigned long long int beginCycle;
@@ -34,9 +34,10 @@ class CutTheRoots {
 public:
 	
     vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
+		srand(time(NULL));
 		resetTimer();
-		
 		Problem problem(NP,points,roots);
+		problem = *preprocess(problem);
 		double current = -1e9;
 		Answer res_ans;
 		while( nowTime() < TIME_LIMIT ){
@@ -54,15 +55,9 @@ public:
 		// cerr << NaiveScoring::overall_score(problem,answer) << endl;
         return res_ans.to_vector();
     }
-	ExtendedAnswer greedy1(Problem &problem){
-		vector<RGB> colors;
-		for(int i = 0 ; i < problem.trees.size() ; i++) colors.push_back(RGB::random());
+	Problem *preprocess(Problem &problem){
 		int N = problem.trees.size();
 
-		// cerr << answer.overall_score() << endl;
-		
-	
-		// if( configuration.visualize_mode ) answer.draw(problem,colors);
 		vector<pair<double,pair<int,int>>> pairs;
 		for(int i = 0 ; i < N ; i++){
 			for(int j = i+1; j < N ; j++){
@@ -72,8 +67,110 @@ public:
 			}
 		}
 		
-		srand(time(NULL));
-		random_shuffle(pairs.begin(),pairs.end());
+		sort(pairs.begin(),pairs.end());
+		
+		
+		vector<ExtendedAnswer> answers;
+		for(int _ = 0 ; _ < 6 ; _++){
+			ExtendedAnswer answer(&problem);
+			for(int li = 0 ; li < pairs.size(); li++){
+				int i = pairs[li].second.first;
+				int j = pairs[li].second.second;
+				P p1 = problem.trees[i].position[problem.trees[i].root];
+				P p2 = problem.trees[j].position[problem.trees[j].root];
+				bool separated = false;
+				for( auto l : answer.lines ){
+					if( GeomUtils::is_separating(l,p1,p2) ){
+						separated = true;
+						break;
+					}
+				}
+				
+				if( !separated ){
+					vector<pair<double,L>> cand;
+					double cur = answer.overall_score();
+					for(int m = 0 ; m < 8000 / problem.trees.size() ; m++){
+						double A = 1. * xor64() / (unsigned int)(-1);
+						double B = 1. * xor64() / (unsigned int)(-1);
+						P mp = p1 + (p2-p1) * A;
+					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
+						P vec = (p1-p2) * exp(P(0,PI*B));
+						L l = L(mp,mp+vec);
+						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
+							double loss = cur - answer.overall_score(l);
+							//cerr << loss << endl;
+							cand.emplace_back(loss,l);
+						}
+						// cerr << endl;
+					}
+					// cerr << endl;
+					sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
+						return a.first < b.first;
+						
+					});
+					for(int i = 0 ; i < cand.size() ; i++){
+						L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
+						if( fix_l[0] != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
+								// double loss = answer.overall_score() - answer.overall_score(fix_l);
+								// cerr << loss -  cand[0].first << endl;
+								answer.add_line(fix_l);
+								
+								break;
+						}
+					}
+				}
+			}
+			for(int i = 0 ; i < answer.lines.size() ; ){
+				vector<L> ls;
+				for(int j = 0 ; j < answer.lines.size() ; j++)
+					if( i != j ) ls.push_back(answer.lines[j]);
+				bool f = true;
+				for(int j = 0 ; j < N ; j++){
+					for(int k = j+1 ; k < N ; k++){
+						P p1 = problem.trees[j].position[problem.trees[j].root];
+						P p2 = problem.trees[k].position[problem.trees[k].root];
+						bool separated = false;
+						for( auto l : ls ){
+							if( GeomUtils::is_separating(l,p1,p2) ){
+								separated = true;
+								break;
+							}
+						}
+						if( !separated ) {
+							f = false;
+							break;
+						}
+					}
+					if( !f ) break;
+				}
+				if( f ) {
+					answer.lines.erase(answer.lines.begin()+i);
+				}else i++;
+			}
+			ExtendedAnswer hogehoge(&problem);
+			for(int i = 0 ; i < answer.lines.size() ; i++){
+				hogehoge.add_line(answer.lines[i]);
+			}
+			answers.push_back(hogehoge);
+			random_shuffle(pairs.begin(),pairs.end());
+		}
+		
+		return remake_trees(&problem,answers);
+	}
+	
+	ExtendedAnswer greedy1(Problem &problem){
+		int N = problem.trees.size();
+
+		vector<pair<double,pair<int,int>>> pairs;
+		for(int i = 0 ; i < N ; i++){
+			for(int j = i+1; j < N ; j++){
+				P p1 = problem.trees[i].position[problem.trees[i].root];
+				P p2 = problem.trees[j].position[problem.trees[j].root];
+				pairs.push_back({norm(p1-p2),{i,j}});
+			}
+		}
+		
+		sort(pairs.begin(),pairs.end());
 		
 		
 		ExtendedAnswer final_answer(&problem);
@@ -83,7 +180,7 @@ public:
 		while(true){
 			ExtendedAnswer answer(&problem);
 			random_shuffle(final_answer.lines.begin(),final_answer.lines.end());
-			for(int i = 0 ; i < final_answer.lines.size() * 0 / 10 ; i++){
+			for(int i = 0 ; i < final_answer.lines.size() * 8 / 10 ; i++){
 				answer.add_line(final_answer.lines[i]);
 			}
 			
@@ -103,7 +200,7 @@ public:
 				if( !separated ){
 					vector<pair<double,L>> cand;
 					double cur = answer.overall_score();
-					for(int m = 0 ; m < 20000 / problem.trees.size() ; m++){
+					for(int m = 0 ; m < 80000 / problem.trees.size() ; m++){
 						if( nowTime() > TIME_LIMIT ){
 							
 							return final_answer;
@@ -136,9 +233,6 @@ public:
 								break;
 						}
 					}
-					
-					if( configuration.visualize_mode ) answer.draw(problem,colors);
-					// cerr << answer.overall_score() << " "  << NaiveScoring::overall_score(problem,answer) << endl;
 				}
 			}
 			
@@ -182,13 +276,13 @@ public:
 				cerr << currentScore << endl;
 			}
 			Utils::reflesh_max(maximum_ratios,answer.get_ratio());
-			double sum = 0;
-			for(int i = 0 ; i < N ; i++){
-				sum +=  maximum_ratios[i] * problem.trees[i].tot_sum_of_tree[0] ;
-				cerr << maximum_ratios[i] * problem.trees[i].tot_sum_of_tree[0] << endl;
-			}
-			cerr << sum << endl;
-			cerr << "---" << endl;
+			// double sum = 0;
+			// for(int i = 0 ; i < N ; i++){
+				// sum +=  maximum_ratios[i] * problem.trees[i].tot_sum_of_tree[0] ;
+				// cerr << answer.score_of_tree(problem.trees[i]) << "/" << problem.trees[i].tot_sum_of_tree[0] << endl;
+			// }
+			// cerr << sum << endl;
+			// cerr << "---" << endl;
 			
 			cerr << nowTime() << endl;
 			random_shuffle(pairs.begin(),pairs.end());

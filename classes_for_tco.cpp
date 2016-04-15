@@ -413,121 +413,26 @@ public:
 };
 
 
-class NaiveScoring{
-public:
-	static double score_of_tree(const Tree &tree,const Answer &answer){
-		return inner_dfs_score_of_tree(tree,answer,tree.root);
-	}
-	static double overall_score(const Problem &problem,const Answer &answer){
-		double sum = 0;
-		for( const auto &tree : problem.trees ){
-			sum += score_of_tree(tree,answer);
-		}
-		return sum;
-	}
-	
-	static double score_of_tree_fast(const Tree &tree,const Answer &answer){
-		double all_area = area2(tree.convex_polygon);
-		if( all_area < EPS ) return 0;
-		G cut_g = tree.convex_polygon;
-		for(auto l : answer.lines ){
-			if( cut_g.size() == 0 ) return 0;
-			auto g1 = convex_cut(cut_g,l);
-			if( convex_contains(g1,tree.position[tree.root]) != OUT ){
-				cut_g = g1;
-			}else{
-				auto g2 = convex_cut(cut_g,L(l[1],l[0]));
-				cut_g = g2;
-			}	
-		}
-		double sub_area =  area2(cut_g);
-		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
-	}
-	static double overall_score_fast(const Problem &problem,const Answer &answer){
-		double sum = 0;
-		for( const auto &tree : problem.trees ){
-			sum += score_of_tree_fast(tree,answer);
-		}
-		return sum;
-	}
-
-	static double score_of_tree_fast_differ_ver(int tree_id,const Tree &tree,ExtendedAnswer &answer,const L &l){
-		double all_area = answer.original_area[tree_id];
-		if( all_area < EPS ) return 0;
-		G& cut_g = answer.convex_polygon[tree_id];
-		if( cut_g.size() == 0 ) return 0;
-		auto g1 = convex_cut(cut_g,l);
-		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
-			cut_g = g1;
-		}else{
-			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
-			cut_g = g2;
-		}
-		double sub_area =  area2(cut_g);
-		return (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
-	}
-	static double overall_score_fast_differ_ver(const Problem &problem,ExtendedAnswer &answer,const L &l){
-		double sum = 0;
-		for(int i = 0 ; i < problem.trees.size() ; i++){
-			sum += score_of_tree_fast_differ_ver(i,problem.trees[i],answer,l);
-		}
-		answer.lines.push_back(l);
-		return sum;
-	}
-	static double overall_score_fast_nonline(const Problem &problem,ExtendedAnswer &answer){
-		double sum = 0;
-		for(int i = 0 ; i < problem.trees.size() ; i++){
-			if( answer.original_area[i] > EPS ){
-				sum += area2(answer.convex_polygon[i]) / answer.original_area[i] * problem.trees[i].tot_sum_of_tree[problem.trees[i].root];
-			}
-		}
-		return sum;
-	}
-private:
-	static double inner_dfs_score_of_tree(const Tree &tree,const Answer &answer,int x){
-		double sum = 0;
-		for( auto c : tree.child[x] ){
-			// ここ前計算で114514倍くらい速くなると思う
-			double cut_dist = INF;
-			for( const auto& line : answer.lines ){
-				//assert(!(intersectLP(line,tree.position[x]) and !intersectLP(line,tree.position[c])));
-				if( intersectLS(line,L(tree.position[x],tree.position[c])) ){
-					P cp = crosspoint(line,L(tree.position[x],tree.position[c]));
-					//assert(abs(cp-tree.position[x]) > EPS and abs(cp-tree.position[c]) > EPS);
-					cut_dist = min(cut_dist,abs(cp-tree.position[x]));
-				}
-			}
-			if( cut_dist != INF ){
-				// cerr << cut_dist << " " << abs(tree.position[x]-tree.position[c]) << endl;
-				sum += cut_dist; 
-			}else{
-				sum += inner_dfs_score_of_tree(tree,answer,c);
-				sum += abs(tree.position[x]-tree.position[c]);
-			}
-		}
-		return sum;
-	}
-
-};
 
 void inner_dfs_remaked_tree(int x,int bit,Tree &tree,const vector<ExtendedAnswer> &answers){
 	for(int i = 0 ; i < answers.size() ; i++){
 		if( answers[i].already_cut[tree.id][x] ) bit |= 1 << i;	
 	}
+	// cerr << bit << endl;
 	if( bit == (1<<answers.size()) - 1 ){
-		cerr << "><" << "cut" << endl;
 		tree.child[x].clear();
 		return;
 	}
 	
 	for( auto c : tree.child[x] ){
-		inner_dfs_remaked_tree(x,bit,tree,answers);
+		inner_dfs_remaked_tree(c,bit,tree,answers);
 	}
 	
 	return;
 }
 void remake_tree(Tree &tree, const vector<ExtendedAnswer> &answers){
 	assert( answers.size() <= 32 );
+	inner_dfs_remaked_tree(0,0,tree,answers);
 	tree.init_dfs(0);
 	
 }
