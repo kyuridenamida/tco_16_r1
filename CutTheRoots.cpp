@@ -2,6 +2,7 @@
 #include <cstdio>
 
 const double TIME_LIMIT = 9.8;
+
 namespace MyTimer{
 	unsigned long long int cycle_per_sec = 2500000000;
 	unsigned long long int beginCycle;
@@ -34,12 +35,22 @@ class CutTheRoots {
 public:
 	
     vector<int> makeCuts(int NP, vector<int> points, vector<int> roots) {
-		srand(time(NULL));
+		// srand(time(NULL));
 		resetTimer();
 		Problem problem(NP,points,roots);
+		if( configuration.visualize_mode ){
+			ExtendedAnswer answer_tmp(&problem);
+			answer_tmp.draw_sol();
+		}
 		problem = *preprocess(problem);
+		if( configuration.visualize_mode ){
+			ExtendedAnswer answer_tmp(&problem);
+			answer_tmp.draw_sol();
+			return {};
+		}
 		double current = -1e9;
 		Answer res_ans;
+		
 		while( nowTime() < TIME_LIMIT ){
 			//cerr << NaiveScoring::overall_score(problem,{}) << endl;
 			ExtendedAnswer answer = greedy1(problem);
@@ -71,7 +82,7 @@ public:
 		
 		
 		vector<ExtendedAnswer> answers;
-		for(int _ = 0 ; _ < 6 ; _++){
+		for(int _ = 0 ; _ < 4 ; _++){
 			ExtendedAnswer answer(&problem);
 			for(int li = 0 ; li < pairs.size(); li++){
 				int i = pairs[li].second.first;
@@ -94,9 +105,10 @@ public:
 						double B = 1. * xor64() / (unsigned int)(-1);
 						P mp = p1 + (p2-p1) * A;
 					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
-						P vec = (p1-p2) * exp(P(0,PI*B));
+						complex<double> rot = exp(complex<double>(0,PI*B));
+						P vec = (p1-p2) * P(rot.real(),rot.imag());
 						L l = L(mp,mp+vec);
-						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
+						if( l.a != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
 							double loss = cur - answer.overall_score(l);
 							//cerr << loss << endl;
 							cand.emplace_back(loss,l);
@@ -110,7 +122,7 @@ public:
 					});
 					for(int i = 0 ; i < cand.size() ; i++){
 						L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
-						if( fix_l[0] != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
+						if( fix_l.a != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
 								// double loss = answer.overall_score() - answer.overall_score(fix_l);
 								// cerr << loss -  cand[0].first << endl;
 								answer.add_line(fix_l);
@@ -174,13 +186,15 @@ public:
 		
 		
 		ExtendedAnswer final_answer(&problem);
+		
 		double currentScore = -1;
 		
 		vector<double> maximum_ratios(N,0.0);
 		while(true){
 			ExtendedAnswer answer(&problem);
 			random_shuffle(final_answer.lines.begin(),final_answer.lines.end());
-			for(int i = 0 ; i < final_answer.lines.size() * 8 / 10 ; i++){
+			// cerr << TIME_LIMIT << endl;
+			for(int i = 0 ; i + 1 < final_answer.lines.size(); i++){
 				answer.add_line(final_answer.lines[i]);
 			}
 			
@@ -209,9 +223,10 @@ public:
 						double B = 1. * xor64() / (unsigned int)(-1);
 						P mp = p1 + (p2-p1) * A;
 					// cerr << cur << " " << NaiveScoring::overall_score_fast(problem,answer) << "|" <<  NaiveScoring::overall_score(problem,answer) << endl;
-						P vec = (p1-p2) * exp(P(0,PI*B));
+						complex<double> rot = exp(complex<double>(0,PI*B));
+						P vec = (p1-p2) * P(rot.real(),rot.imag());
 						L l = L(mp,mp+vec);
-						if( l[0] != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
+						if( l.a != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
 							double loss = cur - answer.overall_score(l);
 							//cerr << loss << endl;
 							cand.emplace_back(loss,l);
@@ -225,7 +240,7 @@ public:
 					});
 					for(int i = 0 ; i < cand.size() ; i++){
 						L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
-						if( fix_l[0] != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
+						if( fix_l.a != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
 								// double loss = answer.overall_score() - answer.overall_score(fix_l);
 								// cerr << loss -  cand[0].first << endl;
 								answer.add_line(fix_l);

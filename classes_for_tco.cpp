@@ -14,7 +14,11 @@ namespace Utils{
 		for(int i = 0 ; i < a.size() ; i++)
 			a[i] = max(a[i],b[i]);
 	}
+	int to_int(double x){
+		return x + 0.5;
+	}
 };
+using namespace Utils;
 const P null_point = P(-1,-1);
 const L null_line = L(null_point,null_point);
 
@@ -171,10 +175,10 @@ public:
 	vector<int> to_vector(){
 		vector<int> vs;
 		for( auto line : lines ){
-			vs.push_back(line[0].real()+0.5);
-			vs.push_back(line[0].imag()+0.5);
-			vs.push_back(line[1].real()+0.5);
-			vs.push_back(line[1].imag()+0.5);
+			vs.push_back(line.a.x+0.5);
+			vs.push_back(line.a.y+0.5);
+			vs.push_back(line.b.x+0.5);
+			vs.push_back(line.b.y+0.5);
 		}
 		return vs;
 	}
@@ -214,7 +218,6 @@ public:
 			original_area.push_back(area2(tree.convex_polygon));
 			convex_polygon.push_back(tree.convex_polygon);
 			mecs.push_back(Circle::minEnclosingCircle(tree.convex_polygon));
-			MEMO_score_of_tree_rough.push_back(tree.tot_sum_of_tree[0]);
 			MEMO_score_of_tree.push_back(tree.tot_sum_of_tree[0]);
 			current_weight.push_back(vector<double>(tree.n,-1.0));
 			already_cut.push_back(vector<bool>(tree.n,false));
@@ -222,7 +225,7 @@ public:
 			
 		}
 		// cerr << all_total << "<" << endl;
-		MEMO_overall_score_rough = MEMO_overall_score = all_total;
+		MEMO_overall_score = all_total;
 		
 	}
 	void add_line(const L &line){
@@ -231,104 +234,6 @@ public:
 		overall_score(line,true);
 	}
 	
-	vector<double> MEMO_score_of_tree_rough;
-	
-	double score_of_tree_rough(const Tree &tree,const L &l,bool reflesh){
-		if( distanceLP(l,mecs[tree.id].p) > mecs[tree.id].r + EPS ){
-			return MEMO_score_of_tree_rough[tree.id];
-		}
-		double all_area = original_area[tree.id];
-		if( all_area < EPS ) return MEMO_score_of_tree_rough[tree.id] = 0;
-		G& cut_g = convex_polygon[tree.id];
-		if( cut_g.size() == 0 ) return MEMO_score_of_tree_rough[tree.id] = 0;
-		auto g1 = convex_cut(cut_g,l);
-		G next_cut_g;
-		if( convex_contains(g1,tree.position[tree.root]) != OUT ){
-			next_cut_g = g1;
-		}else{
-			auto g2 = convex_cut(cut_g,L(l[1],l[0]));
-			next_cut_g = g2;
-		}
-		double sub_area =  area2(next_cut_g);
-		double res = (sub_area / all_area) * tree.tot_sum_of_tree[tree.root];
-		
-		if( reflesh ) {
-			cut_g = next_cut_g;
-			mecs[tree.id] = Circle::minEnclosingCircle(next_cut_g);
-			MEMO_score_of_tree_rough[tree.id] = res;
-		}
-		return res;
-	}
-	
-	double MEMO_overall_score_rough ;
-	double overall_score_rough(const L &l = null_line,bool reflesh=false){
-		if( l == null_line ){
-			return MEMO_overall_score_rough;
-		}
-		double sum = 0;
-		for(const auto &tree : problem->trees ){
-			sum += score_of_tree_rough(tree,l,reflesh);
-		}
-		if( reflesh ){
-			MEMO_overall_score_rough = sum;
-		}
-		return sum;
-	}
-	
-
-	void draw_MEC(const Problem &problem, vector<RGB> colors){
-		cout << "C " << 0 << " " << 0 << " " << 0 << " " << 512 << " " << 512 << " " << 512 << endl;
-		for(int i = 0 ; i < convex_polygon.size() ; i++){
-			auto &g = convex_polygon[i];
-			if( g.size() >= 3 ){
-				cout << "G ";
-				cout << colors[i].r << " " << colors[i].g << " " << colors[i].b;
-				for( auto p : g ){
-					cout << " " << (int)(p.real()+0.5) << " " << (int)(p.imag()+0.5);
-				}
-				cout << endl;
-			}
-			cout << "C ";
-			cout << colors[i].r << " " << colors[i].g << " " << colors[i].b;
-			auto mec = Circle::minEnclosingCircle(g);
-			// cerr << mec.p.real() << " " << mec.p.imag() << " " << mec.r << endl;
-			cout << " " << (int)(mec.p.real()+0.5) << " " << (int)(mec.p.imag()+0.5) << " " << (int)(mec.r+0.5) << endl;
-			cout << "C ";
-			cout << 255-colors[i].r << " " << 255-colors[i].g << " " << 255-colors[i].b;
-			cout << " " << (int)(problem.trees[i].position[0].real()+0.5) << " " << (int)(problem.trees[i].position[0].imag()+0.5) << " " << 2 << endl;
-		}
-		for( auto l : lines ){
-			cout << "L " << 255 << " " << 255 << " " << 255 << " " << (int)(l[0].real()+0.5) << " " << (int)(l[0].imag()+0.5) << " " << (int)(l[1].real()+0.5) << " " << (int)(l[1].imag()+0.5) << endl;
-		}
-		cout << "END" << endl;
-	
-	}
-	void draw(const Problem &problem, vector<RGB> colors){
-		overall_score_rough();
-		draw_MEC(problem,colors);
-		return;
-		cout << "C " << 0 << " " << 0 << " " << 0 << " " << 512 << " " << 512 << " " << 512 << endl;
-		for(int i = 0 ; i < convex_polygon.size() ; i++){
-			auto &g = convex_polygon[i];
-			if( g.size() >= 3 ){
-				cout << "G ";
-				cout << colors[i].r << " " << colors[i].g << " " << colors[i].b;
-				for( auto p : g ){
-					cout << " " << (int)(p.real()+0.5) << " " << (int)(p.imag()+0.5);
-				}
-				cout << endl;
-			}
-			cout << "C ";
-			cout << 255-colors[i].r << " " << 255-colors[i].g << " " << 255-colors[i].b;
-			cout << " " << (int)(problem.trees[i].position[0].real()+0.5) << " " << (int)(problem.trees[i].position[0].imag()+0.5) << " " << 2 << endl;
-		}
-		for( auto l : lines ){
-			cout << "L " << 255 << " " << 255 << " " << 255 << " " << (int)(l[0].real()+0.5) << " " << (int)(l[0].imag()+0.5) << " " << (int)(l[1].real()+0.5) << " " << (int)(l[1].imag()+0.5) << endl;
-		}
-		cout << "END" << endl;
-	}
-
-
 	vector<double> MEMO_score_of_tree;
 
 	double score_of_tree(const Tree &tree,const L &l = null_line,bool reflesh=true){
@@ -410,6 +315,28 @@ public:
 		return res;
 	}
 
+	void inner_draw_tree(int x,bool dead,const Tree &tree,const RGB &alive){
+		if( already_cut[tree.id][x] ) dead = true;
+		
+		
+		for( auto c : tree.child[x] ){
+			cout << "S " << alive.r << " " << alive.g << " " << alive.b << " " << to_int(tree.position[x].x) << " " << to_int(tree.position[x].y) << " " << to_int(tree.position[c].x) << " " << to_int(tree.position[c].y) << endl;
+			inner_draw_tree(c,dead,tree,alive);
+		}
+		
+		return;
+	}
+	void draw_sol(){
+		cout << "C " << 128 << " " << 128 << " " << 128 << " " << 512 << " " << 512 << " " << 512 << endl;	
+		static vector<RGB> cs;
+		while( cs.size() < 200 ) cs.push_back(RGB::random());
+		
+		for( auto& tree : problem->trees ){
+			inner_draw_tree(0,false,tree,cs[tree.id]);
+		}
+		cout << "END" << endl;
+	}
+
 };
 
 
@@ -448,43 +375,43 @@ Problem* remake_trees(Problem *problem,const vector<ExtendedAnswer> &answers){
 class GeomUtils{
 public:
 	static bool is_separating(L l,P p1,P p2){
-		int r1 = ccw(l[0],l[1],p1);
-		int r2 = ccw(l[0],l[1],p2);
+		int r1 = ccw(l.a,l.b,p1);
+		int r2 = ccw(l.a,l.b,p2);
 		return abs(r1) == 1 && abs(r2) == 1 && r1 != r2;
 	}
 	static L convert_to_integer_line(L l,P p1,P p2){
-		// cout << l[1] << " " << l[0] << endl;
-		P vec = (l[1] - l[0]) / abs(l[1]-l[0]);
+		// cout << l.b << " " << l.a << endl;
+		P vec = (l.b - l.a) / abs(l.b-l.a);
 		// cout << vec << endl;
-		if( abs(vec.real()) < EPS ) {
-			int x = (l[0].real()+0.5);
+		if( abs(vec.x) < EPS ) {
+			int x = (l.a.x+0.5);
 			return L(P(x,0),P(x,1));
 		}
-		if( abs(vec.imag()) < EPS ){
-			int y = (l[0].imag()+0.5);
+		if( abs(vec.y) < EPS ){
+			int y = (l.a.y+0.5);
 			return L(P(0,y),P(1,y));
 		}
-		P vx = vec / vec.real();
+		P vx = vec / vec.x;
 		//cout << vx << endl;
 		vector< pair<double,P> > ps;
 		for(int i = 0 ; i <= 1024 ; i++){
-			P t = l[0] + (i-l[0].real()) * vx;
-			if( -EPS <= t.real() && t.real() <= 1024 + EPS && 
-				-EPS <= t.imag() && t.imag() <= 1024 + EPS ){
-				int X = t.real() + 0.5;
-				int Y = t.imag() + 0.5;
-				ps.push_back({abs(t.real()-X)+abs(t.imag()-Y),P(X,Y)});
+			P t = l.a + (i-l.a.x) * vx;
+			if( -EPS <= t.x && t.x <= 1024 + EPS && 
+				-EPS <= t.y && t.y <= 1024 + EPS ){
+				int X = t.x + 0.5;
+				int Y = t.y + 0.5;
+				ps.push_back({abs(t.x-X)+abs(t.y-Y),P(X,Y)});
 			}
 		}
-		P vy = vec / vec.imag();
-		// cout << l[0] << " " << vy << endl;
+		P vy = vec / vec.y;
+		// cout << l.a << " " << vy << endl;
 		for(int i = 0 ; i <= 1024 ; i++){
-			P t = l[0] + (i-l[0].imag()) * vy;
-			if( -EPS <= t.real() && t.real() <= 1024 + EPS && 
-				-EPS <= t.imag() && t.imag() <= 1024 + EPS ){
-				int X = t.real() + 0.5;
-				int Y = t.imag() + 0.5;
-				ps.push_back({abs(t.real()-X)+abs(t.imag()-Y),P(X,Y)});
+			P t = l.a + (i-l.a.y) * vy;
+			if( -EPS <= t.x && t.x <= 1024 + EPS && 
+				-EPS <= t.y && t.y <= 1024 + EPS ){
+				int X = t.x + 0.5;
+				int Y = t.y + 0.5;
+				ps.push_back({abs(t.x-X)+abs(t.y-Y),P(X,Y)});
 			}
 		}
 		sort(ps.begin(),ps.end());

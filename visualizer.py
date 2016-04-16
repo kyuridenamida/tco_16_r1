@@ -46,13 +46,15 @@ while True:
 		args = args[3:]
 		if scene[0] == 'C':
 			if args[2] != 0:
-				pygame.draw.circle(screen, color, (args[0],args[1]), args[2],1)
+				pygame.draw.circle(screen, color, (args[0],args[1]), args[2])
 		elif scene[0] == 'L':
 			vec = (args[2] - args[0], args[3] - args[1])
 			p1 = (args[0] + 1024 * vec[0],args[1] + 1024 * vec[1])
 			p2 = (args[0] - 1024 * vec[0],args[1] - 1024 * vec[1])
-			
 			pygame.draw.line(screen, color, p1,p2 )
+		elif scene[0] == 'S':
+			# vec = (args[2] - args[0], args[3] - args[1])
+			pygame.draw.line(screen, color, (args[0],args[1]), (args[2],args[3]) )
 		elif scene[0] == 'G':
 			# poly = pygame.Surface((100,100), pygame.SRCALPHA, 32)
 			pygame.draw.polygon(screen, color, list(zip(args[0::2],args[1::2])) )
