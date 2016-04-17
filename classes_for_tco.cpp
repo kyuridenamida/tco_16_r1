@@ -202,27 +202,15 @@ public:
 class ExtendedAnswer : public Answer{
 public:
 	Problem* problem;
-	// pre
-	vector<G> convex_polygon;
-	vector<double> original_area;
-
-	//2387500
-	vector<Circle> mecs;
-	
 
 	ExtendedAnswer(Problem *problem) : problem(problem){
 		double all_total = 0;
 		for(const auto &tree : problem->trees ){
 			all_total += tree.tot_sum_of_tree[0];
-			// cerr << tree.tot_sum_of_tree[0] << "<" << endl;
-			original_area.push_back(area2(tree.convex_polygon));
-			convex_polygon.push_back(tree.convex_polygon);
-			mecs.push_back(Circle::minEnclosingCircle(tree.convex_polygon));
 			MEMO_score_of_tree.push_back(tree.tot_sum_of_tree[0]);
 			current_weight.push_back(vector<double>(tree.n,-1.0));
 			already_cut.push_back(vector<bool>(tree.n,false));
 			inner_init_dfs_score_of_tree(tree.root,tree);
-			
 		}
 		// cerr << all_total << "<" << endl;
 		MEMO_overall_score = all_total;

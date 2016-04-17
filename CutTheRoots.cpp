@@ -82,7 +82,8 @@ public:
 		
 		
 		vector<ExtendedAnswer> answers;
-		for(int _ = 0 ; _ < 4 ; _++){
+		
+		for(int _ = 0 ; _ < 10 ; _++){
 			ExtendedAnswer answer(&problem);
 			for(int li = 0 ; li < pairs.size(); li++){
 				int i = pairs[li].second.first;
@@ -166,8 +167,19 @@ public:
 			answers.push_back(hogehoge);
 			random_shuffle(pairs.begin(),pairs.end());
 		}
+		vector<int> idx;
+		for(int i = 0 ; i < answers.size() ; i++)
+			idx.push_back(i);
+		sort(idx.begin(),idx.end(),[&](int a,int b){
+			
+			return answers[a].overall_score() > answers[b].overall_score();
+		});
+		if( idx.size() > 3 ) idx.resize(3);
+		vector<ExtendedAnswer> res_ans;
+		for(int i = 0 ; i < idx.size() ; i++)
+			res_ans.push_back(answers[idx[i]]);
 		
-		return remake_trees(&problem,answers);
+		return remake_trees(&problem,res_ans);
 	}
 	
 	ExtendedAnswer greedy1(Problem &problem){
@@ -194,9 +206,12 @@ public:
 			ExtendedAnswer answer(&problem);
 			random_shuffle(final_answer.lines.begin(),final_answer.lines.end());
 			// cerr << TIME_LIMIT << endl;
+
 			for(int i = 0 ; i + 1 < final_answer.lines.size(); i++){
 				answer.add_line(final_answer.lines[i]);
 			}
+			
+			
 			
 			for(int li = 0 ; li < pairs.size(); li++){
 				int i = pairs[li].second.first;
