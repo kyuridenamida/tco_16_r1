@@ -354,9 +354,6 @@ public:
 	}
 	
 	void erase_line(int lineid){
-		swap(lines[lineid],lines.back());
-
-
 
 		for(int i = 0 ; i < problem->trees.size() ; i++){
 			if( inner_erase_line(0,problem->trees[i],lineid) ){
@@ -367,9 +364,9 @@ public:
 				}
 			}
 		}
+		lines.erase(lines.begin()+lineid);
 		MEMO_overall_score = -1;
 		
-		lines.pop_back();
 		
 		//MEMO_overall_score = -1; //全体スコア一回リセット
 	}
@@ -445,41 +442,39 @@ public:
 		}
 		cout << "END" << endl;
 	}
-	ExtendedAnswer refined_answer(){
-		for(int i = 0 ; i < lines.size() ; ){
-				vector<L> ls;
-				for(int j = 0 ; j < lines.size() ; j++)
-					if( i != j ) ls.push_back(lines[j]);
-				bool f = true;
-				for(int j = 0 ; j < problem->trees.size() ; j++){
-					for(int k = j+1 ; k < problem->trees.size() ; k++){
-						P p1 = problem->trees[j].position[problem->trees[j].root];
-						P p2 = problem->trees[k].position[problem->trees[k].root];
-						bool separated = false;
-						for( auto l : ls ){
-							if( GeomUtils::is_separating(l,p1,p2) ){
-								separated = true;
-								break;
-							}
-						}
-						if( !separated ) {
-							f = false;
+	void refine(){
+		ExtendedAnswer tmp;
+		for(int i = 0  ; i < lines.size() ; ){
+			vector<L> ls;
+			for(int j = 0 ; j < lines.size() ; j++)
+				if( i != j ) ls.push_back(lines[j]);
+			bool f = true;
+			for(int j = 0 ; j < problem->trees.size() ; j++){
+				for(int k = j+1 ; k < problem->trees.size() ; k++){
+					P p1 = problem->trees[j].position[problem->trees[j].root];
+					P p2 = problem->trees[k].position[problem->trees[k].root];
+					bool separated = false;
+					for( auto &l : ls ){
+						if( GeomUtils::is_separating(l,p1,p2) ){
+							separated = true;
 							break;
 						}
 					}
-					if( !f ) break;
+					if( !separated ) {
+						f = false;
+						break;
+					}
 				}
-				if( f ) {
-					lines.erase(lines.begin()+i);
-					
-					//cerr << "OK" << endl;
-				}else i++;
+				if( !f ) break;
 			}
-			ExtendedAnswer hogehoge(problem);
-			for(int i = 0 ; i < lines.size() ; i++){
-				hogehoge.add_line(lines[i]);
-			}
-			return hogehoge;
+			if( f ) {
+				erase_line(i);
+			}else{
+				tmp.add_line(lines[i]);
+				i++;
+			} 
+		}
+		//*this = tmp;
 	}
 
 };

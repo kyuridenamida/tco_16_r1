@@ -244,7 +244,7 @@ public:
 		
 
 		// return answer;
-		answer = answer.refined_answer();
+		answer.refine();
 		ExtendedAnswer tmp(&problem);
 		for( auto &l : answer.lines )
 			tmp.add_line(l);
@@ -274,6 +274,7 @@ public:
 						P p1 = problem.trees[i].position[problem.trees[i].root];
 						P p2 = problem.trees[j].position[problem.trees[j].root];
 						bool separated = false;
+
 						for( auto l : train.lines ){
 							if( GeomUtils::is_separating(l,p1,p2) ){
 								separated = true;
@@ -309,7 +310,7 @@ public:
 							}
 						}
 					}
-					train = train.refined_answer();
+					train.refine();
 					if( train.overall_score() > answer.overall_score() ){
 						cerr << train.overall_score() - answer.overall_score() << "|" << train.overall_score() << "|" << xxx << endl;
 						answer = train;
