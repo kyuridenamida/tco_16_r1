@@ -287,7 +287,7 @@ public:
 
 	double score_of_tree(const Tree &tree,const L &l = null_line,bool reflesh=true){
 		if( l != null_line ){
-			inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
+			return inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
 		}
 		return current_weight[tree.id][tree.root];
 	}
@@ -355,12 +355,23 @@ public:
 	
 	void erase_line(int lineid){
 		swap(lines[lineid],lines.back());
+
+
+
 		for(int i = 0 ; i < problem->trees.size() ; i++){
-			inner_erase_line(0,problem->trees[i],lineid);
+			if( inner_erase_line(0,problem->trees[i],lineid) ){
+				for(int j = 0 ; j < lines.size() ; j++){
+					if( j != lineid ){
+						inner_dfs_score_of_tree(0,problem->trees[i],lines[j],true);
+					}
+				}
+			}
 		}
+		MEMO_overall_score = -1;
+		
 		lines.pop_back();
 		
-		MEMO_overall_score = -1; //全体スコア一回リセット
+		//MEMO_overall_score = -1; //全体スコア一回リセット
 	}
 	
 	void reset_cut(int x,const Tree &tree){
@@ -370,10 +381,11 @@ public:
 			reset_cut(c,tree);
 		}
 	}
-	void inner_erase_line(int x,const Tree &tree,int lineid){
-		if( distanceLP_check(lines[lineid],tree.mec[x].p,tree.mec[x].r) ) return;		
-		if( already_cut[tree.id][x] ) return;
+	bool inner_erase_line(int x,const Tree &tree,int lineid){
+		if( distanceLP_check(lines[lineid],tree.mec[x].p,tree.mec[x].r) ) return false;		
+		if( already_cut[tree.id][x] ) return false;
 		
+		bool deleted = false;
 		double sum = 0;
 		for(int i = 0 ; i < tree.child[x].size() ; i++){
 			const int &c = tree.child[x][i];
@@ -383,17 +395,12 @@ public:
 				//部分木を全復元
 				current_weight[tree.id][c] = tree.tot_sum_of_tree[c];
 				reset_cut(c,tree);
-				
-				for(int i = 0 ; i < lines.size() ; i++){
-					if( i != lineid ){
-						inner_dfs_score_of_tree(c,tree,lines[lineid],true);
-					}
-				}
-				return;
+				deleted = true;
 			}else{
 				inner_erase_line(c,tree,lineid);			
 			}
 		}
+		return deleted;
 	}
 	
 	vector<double> get_ratio(){

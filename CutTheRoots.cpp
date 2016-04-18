@@ -198,6 +198,7 @@ public:
 		sort(pairs.begin(),pairs.end());
 		
 		ExtendedAnswer answer(&problem_processed);
+		
 		for(int li = 0 ; li < pairs.size(); li++){
 			int i = pairs[li].second.first;
 			int j = pairs[li].second.second;
@@ -251,10 +252,6 @@ public:
 
 		double tot = 0;
 		
-		// for(int i = 0 ; i < answer.lines.size() ; i++){
-			// answer.erase_line(0);
-			// cerr << answer.overall_score() << endl;
-		// }
 		while ( nowTime() < TIME_LIMIT){
 			int failed = 0;
 			while( nowTime() < TIME_LIMIT  ){
@@ -263,39 +260,13 @@ public:
 					random_shuffle(pairs.begin(),pairs.end());
 				}
 				random_shuffle(answer.lines.begin(),answer.lines.end());
-				// ExtendedAnswer bef(&problem);
-				// ExtendedAnswer aft(&problem);
-				// for(int i = 0 ; i < answer.lines.size() ; i++){
-					// if( i < answer.lines.size() / 2 ){
-						// bef.add_line(answer.lines[i]);
-					// }else{
-						// aft.add_line(answer.lines[i]);
-					// }
-				// }
+				
 				for(int xxx = 0 ; xxx <  answer.lines.size() ; xxx++){
 					if( nowTime() > TIME_LIMIT  ) return answer;
-					// cerr << vals[xxx].first << endl;
-					// ExtendedAnswer train;
-					// if( xxx < answer.lines.size() / 2 ){
-						// train = aft;
-						// for(int i = 0 ; i < answer.lines.size() / 2 ; i++){
-							// if( xxx != i ){
-								// train.add_line(answer.lines[i]);
-							// }
-						// }
-					// }else{
-						// train = bef;
-						// for(int i = answer.lines.size() / 2 ; i < answer.lines.size() ; i++){
-							// if( xxx != i ){
-								// train.add_line(answer.lines[i]);
-							// }
-						// }
-					// }
-					
-					ExtendedAnswer train(&problem);
-					for(int i = 0 ; i < answer.lines.size() ; i++){
-						if( xxx != i ) train.add_line(answer.lines[i]);
-					}
+
+					ExtendedAnswer train = answer;
+					train.erase_line(xxx);
+
 					// random_shuffle(pairs.begin(),pairs.end());
 					for(int li = 0 ; li < pairs.size(); li++){
 						int i = pairs[li].second.first;
