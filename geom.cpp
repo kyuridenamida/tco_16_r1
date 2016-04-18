@@ -72,6 +72,10 @@ struct L{
 	bool operator != (const L &t) const{
 		return t.a != a or t.b != b;
 	}
+
+	bool operator < (const L& t) const {
+		return a != t.a ? a < t.a : b < t.b;
+	}
 };
 
 
@@ -86,7 +90,7 @@ int ccw(P a, P b, P c) {
 
 bool intersectLS(const L &l, const L &s) {
 	return (l.A*s.a.x+l.B*s.a.y+l.C) * (l.A*s.b.x+l.B*s.b.y+l.C) < EPS;
-	// return cross(l.b-l.a, s.a-l.a)*cross(l.b-l.a, s.b-l.a) < EPS;
+	return cross(l.b-l.a, s.a-l.a)*cross(l.b-l.a, s.b-l.a) < EPS;
 }
 
 
@@ -97,13 +101,14 @@ inline double distanceLP_check(const L &l, const P &p,const double &r) {
 
  
 P crosspoint(const L &l, const L &m) {
-	// double A = cross(l.b - l.a, m.b - m.a);
-	// double B = cross(l.b - l.a, l.b - m.a);
-	double y = - (l.C * m.A - l.A * m.C) / (l.B * m.A - l.A * m.B);
-	double x = (-l.B * y - l.C) / l.A;
-	// cerr << x << " " << y << "|" << (m.a + B / A * (m.b - m.a)).x << " " << (m.a + B / A * (m.b - m.a)).y << endl;
-	// if (abs(A) < EPS && abs(B) < EPS) return m.a;
-	return P(x,y);
+	// double y = - (l.C * m.A - l.A * m.C) / (l.B * m.A - l.A * m.B);
+	// double x = (-l.B * y - l.C) / l.A;
+	// return P(x,y);
+	
+	double A = cross(l.b - l.a, m.b - m.a);
+	double B = cross(l.b - l.a, l.b - m.a);
+	if (abs(A) < EPS && abs(B) < EPS) return m.a;
+	return m.a + B / A * (m.b - m.a);
 }
  
 #define curr(P, i) P[(i) % P.size()]

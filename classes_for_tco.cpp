@@ -18,6 +18,65 @@ namespace Utils{
 		return x + 0.5;
 	}
 };
+
+
+class GeomUtils{
+public:
+	static bool is_separating(L l,P p1,P p2){
+		int r1 = ccw(l.a,l.b,p1);
+		int r2 = ccw(l.a,l.b,p2);
+		return abs(r1) == 1 && abs(r2) == 1 && r1 != r2;
+	}
+	static L convert_to_integer_line(L l,P p1,P p2){
+		// cout << l.b << " " << l.a << endl;
+		P vec = (l.b - l.a) / abs(l.b-l.a);
+		// cout << vec << endl;
+		if( abs(vec.x) < EPS ) {
+			int x = (l.a.x+0.5);
+			return L(P(x,0),P(x,1));
+		}
+		if( abs(vec.y) < EPS ){
+			int y = (l.a.y+0.5);
+			return L(P(0,y),P(1,y));
+		}
+		P vx = vec / vec.x;
+		//cout << vx << endl;
+		vector< pair<double,P> > ps;
+		for(int i = 0 ; i <= 1024 ; i++){
+			P t = l.a + (i-l.a.x) * vx;
+			if( -EPS <= t.x && t.x <= 1024 + EPS && 
+				-EPS <= t.y && t.y <= 1024 + EPS ){
+				int X = t.x + 0.5;
+				int Y = t.y + 0.5;
+				ps.push_back({abs(t.x-X)+abs(t.y-Y),P(X,Y)});
+			}
+		}
+		P vy = vec / vec.y;
+		// cout << l.a << " " << vy << endl;
+		for(int i = 0 ; i <= 1024 ; i++){
+			P t = l.a + (i-l.a.y) * vy;
+			if( -EPS <= t.x && t.x <= 1024 + EPS && 
+				-EPS <= t.y && t.y <= 1024 + EPS ){
+				int X = t.x + 0.5;
+				int Y = t.y + 0.5;
+				ps.push_back({abs(t.x-X)+abs(t.y-Y),P(X,Y)});
+			}
+		}
+		sort(ps.begin(),ps.end());
+		
+		for(int i = 0 ; i < ps.size() ; i++){
+			for(int j = i+1 ; j < ps.size() ; j++){
+				if( abs(ps[i].second-ps[j].second) < EPS ) continue;
+				if( GeomUtils::is_separating(L(ps[i].second,ps[j].second),p1,p2) ){
+					return L(ps[i].second,ps[j].second);
+				}
+			}
+		}
+		return L(P(-1,-1),P(-1,-1));
+	}
+};
+
+
 using namespace Utils;
 const P null_point = P(-1,-1);
 const L null_line = L(null_point,null_point);
@@ -112,8 +171,10 @@ public:
 
 class Problem{
 public:
+	int NR;
 	vector<Tree> trees;
 	Problem(int NP,vector<int> points,vector<int> roots){
+		NR = roots.size() / 2;
 		int n = points.size() / 2;
 		
 		map<P,vector<P>> graph;
@@ -202,7 +263,7 @@ public:
 class ExtendedAnswer : public Answer{
 public:
 	Problem* problem;
-
+	ExtendedAnswer(){}
 	ExtendedAnswer(Problem *problem) : problem(problem){
 		double all_total = 0;
 		for(const auto &tree : problem->trees ){
@@ -225,19 +286,17 @@ public:
 	vector<double> MEMO_score_of_tree;
 
 	double score_of_tree(const Tree &tree,const L &l = null_line,bool reflesh=true){
-		if( l == null_line )
-			return MEMO_score_of_tree[tree.id];
-		double res = inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
-		if( reflesh ){
-			MEMO_score_of_tree[tree.id] = res;
+		if( l != null_line ){
+			inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
 		}
-		return res;
+		return current_weight[tree.id][tree.root];
 	}
 
 
 	double MEMO_overall_score;
+	
 	double overall_score(const L &l = null_line,bool reflesh=false){
-		if( l == null_line )
+		if( l == null_line and MEMO_overall_score != -1 )
 			return MEMO_overall_score;
 
 		double sum = 0;
@@ -293,6 +352,50 @@ public:
 		}
 		return res;
 	}
+	
+	void erase_line(int lineid){
+		swap(lines[lineid],lines.back());
+		for(int i = 0 ; i < problem->trees.size() ; i++){
+			inner_erase_line(0,problem->trees[i],lineid);
+		}
+		lines.pop_back();
+		
+		MEMO_overall_score = -1; //全体スコア一回リセット
+	}
+	
+	void reset_cut(int x,const Tree &tree){
+		already_cut[tree.id][x] = false;
+		for(int i = 0 ; i < tree.child[x].size() ; i++){
+			const int &c = tree.child[x][i];
+			reset_cut(c,tree);
+		}
+	}
+	void inner_erase_line(int x,const Tree &tree,int lineid){
+		if( distanceLP_check(lines[lineid],tree.mec[x].p,tree.mec[x].r) ) return;		
+		if( already_cut[tree.id][x] ) return;
+		
+		double sum = 0;
+		for(int i = 0 ; i < tree.child[x].size() ; i++){
+			const int &c = tree.child[x][i];
+			const L &cline = tree.child_line[x][i];
+			
+			if( intersectLS(lines[lineid],cline) ){
+				//部分木を全復元
+				current_weight[tree.id][c] = tree.tot_sum_of_tree[c];
+				reset_cut(c,tree);
+				
+				for(int i = 0 ; i < lines.size() ; i++){
+					if( i != lineid ){
+						inner_dfs_score_of_tree(c,tree,lines[lineid],true);
+					}
+				}
+				return;
+			}else{
+				inner_erase_line(c,tree,lineid);			
+			}
+		}
+	}
+	
 	vector<double> get_ratio(){
 		vector<double> res;
 		for( const auto &tree : problem->trees ){
@@ -304,12 +407,20 @@ public:
 	}
 
 	void inner_draw_tree(int x,bool dead,const Tree &tree,const RGB &alive){
-		if( already_cut[tree.id][x] ) dead = true;
+		if( already_cut[tree.id][x] ){
+			dead = true;	
+			return;
+		}
+		
+		
+		
 		
 		
 		for( auto c : tree.child[x] ){
-			cout << "S " << alive.r << " " << alive.g << " " << alive.b << " " << to_int(tree.position[x].x) << " " << to_int(tree.position[x].y) << " " << to_int(tree.position[c].x) << " " << to_int(tree.position[c].y) << endl;
-			inner_draw_tree(c,dead,tree,alive);
+			if( !already_cut[tree.id][c] ){ 
+				cout << "S " << max(alive.r - 100 * dead,0) << " " << max(alive.g - 100 * dead,0) << " " << max(alive.b - 100 * dead,0) << " " << to_int(tree.position[x].x) << " " << to_int(tree.position[x].y) << " " << to_int(tree.position[c].x) << " " << to_int(tree.position[c].y) << endl;
+				inner_draw_tree(c,dead,tree,alive);
+			}
 		}
 		
 		return;
@@ -322,7 +433,46 @@ public:
 		for( auto& tree : problem->trees ){
 			inner_draw_tree(0,false,tree,cs[tree.id]);
 		}
+		for( auto &l : lines ){
+			cout << "L " << 255 << " " << 255 << " " << 255 << " " << to_int(l.a.x) << " " << to_int(l.a.y) << " " << to_int(l.b.x) << " " << to_int(l.b.y) << endl;
+		}
 		cout << "END" << endl;
+	}
+	ExtendedAnswer refined_answer(){
+		for(int i = 0 ; i < lines.size() ; ){
+				vector<L> ls;
+				for(int j = 0 ; j < lines.size() ; j++)
+					if( i != j ) ls.push_back(lines[j]);
+				bool f = true;
+				for(int j = 0 ; j < problem->trees.size() ; j++){
+					for(int k = j+1 ; k < problem->trees.size() ; k++){
+						P p1 = problem->trees[j].position[problem->trees[j].root];
+						P p2 = problem->trees[k].position[problem->trees[k].root];
+						bool separated = false;
+						for( auto l : ls ){
+							if( GeomUtils::is_separating(l,p1,p2) ){
+								separated = true;
+								break;
+							}
+						}
+						if( !separated ) {
+							f = false;
+							break;
+						}
+					}
+					if( !f ) break;
+				}
+				if( f ) {
+					lines.erase(lines.begin()+i);
+					
+					//cerr << "OK" << endl;
+				}else i++;
+			}
+			ExtendedAnswer hogehoge(problem);
+			for(int i = 0 ; i < lines.size() ; i++){
+				hogehoge.add_line(lines[i]);
+			}
+			return hogehoge;
 	}
 
 };
@@ -358,60 +508,3 @@ Problem* remake_trees(Problem *problem,const vector<ExtendedAnswer> &answers){
 	}
 	return new_prob;
 }
-
-
-class GeomUtils{
-public:
-	static bool is_separating(L l,P p1,P p2){
-		int r1 = ccw(l.a,l.b,p1);
-		int r2 = ccw(l.a,l.b,p2);
-		return abs(r1) == 1 && abs(r2) == 1 && r1 != r2;
-	}
-	static L convert_to_integer_line(L l,P p1,P p2){
-		// cout << l.b << " " << l.a << endl;
-		P vec = (l.b - l.a) / abs(l.b-l.a);
-		// cout << vec << endl;
-		if( abs(vec.x) < EPS ) {
-			int x = (l.a.x+0.5);
-			return L(P(x,0),P(x,1));
-		}
-		if( abs(vec.y) < EPS ){
-			int y = (l.a.y+0.5);
-			return L(P(0,y),P(1,y));
-		}
-		P vx = vec / vec.x;
-		//cout << vx << endl;
-		vector< pair<double,P> > ps;
-		for(int i = 0 ; i <= 1024 ; i++){
-			P t = l.a + (i-l.a.x) * vx;
-			if( -EPS <= t.x && t.x <= 1024 + EPS && 
-				-EPS <= t.y && t.y <= 1024 + EPS ){
-				int X = t.x + 0.5;
-				int Y = t.y + 0.5;
-				ps.push_back({abs(t.x-X)+abs(t.y-Y),P(X,Y)});
-			}
-		}
-		P vy = vec / vec.y;
-		// cout << l.a << " " << vy << endl;
-		for(int i = 0 ; i <= 1024 ; i++){
-			P t = l.a + (i-l.a.y) * vy;
-			if( -EPS <= t.x && t.x <= 1024 + EPS && 
-				-EPS <= t.y && t.y <= 1024 + EPS ){
-				int X = t.x + 0.5;
-				int Y = t.y + 0.5;
-				ps.push_back({abs(t.x-X)+abs(t.y-Y),P(X,Y)});
-			}
-		}
-		sort(ps.begin(),ps.end());
-		
-		for(int i = 0 ; i < ps.size() ; i++){
-			for(int j = i+1 ; j < ps.size() ; j++){
-				if( abs(ps[i].second-ps[j].second) < EPS ) continue;
-				if( GeomUtils::is_separating(L(ps[i].second,ps[j].second),p1,p2) ){
-					return L(ps[i].second,ps[j].second);
-				}
-			}
-		}
-		return L(P(-1,-1),P(-1,-1));
-	}
-};
