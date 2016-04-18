@@ -353,8 +353,8 @@ public:
 		return res;
 	}
 	
-	void erase_line(int lineid){
-
+	void erase_line(const L &line){
+		int lineid = find(lines.begin(),lines.end(),line) - lines.begin();
 		for(int i = 0 ; i < problem->trees.size() ; i++){
 			if( inner_erase_line(0,problem->trees[i],lineid) ){
 				for(int j = 0 ; j < lines.size() ; j++){
@@ -366,19 +366,19 @@ public:
 		}
 		lines.erase(lines.begin()+lineid);
 		MEMO_overall_score = -1;
-		
-		
 		//MEMO_overall_score = -1; //全体スコア一回リセット
 	}
 	
 	void reset_cut(int x,const Tree &tree){
 		already_cut[tree.id][x] = false;
+		current_weight[tree.id][x] = tree.tot_sum_of_tree[x];
 		for(int i = 0 ; i < tree.child[x].size() ; i++){
 			const int &c = tree.child[x][i];
 			reset_cut(c,tree);
 		}
 	}
 	bool inner_erase_line(int x,const Tree &tree,int lineid){
+		
 		if( distanceLP_check(lines[lineid],tree.mec[x].p,tree.mec[x].r) ) return false;		
 		if( already_cut[tree.id][x] ) return false;
 		
@@ -390,13 +390,15 @@ public:
 			
 			if( intersectLS(lines[lineid],cline) ){
 				//部分木を全復元
-				current_weight[tree.id][c] = tree.tot_sum_of_tree[c];
 				reset_cut(c,tree);
 				deleted = true;
 			}else{
-				inner_erase_line(c,tree,lineid);			
+				deleted |= inner_erase_line(c,tree,lineid);			
 			}
+			sum += current_weight[tree.id][c];
 		}
+		current_weight[tree.id][x] = sum + tree.length_between_parent[x];
+		
 		return deleted;
 	}
 	
@@ -442,8 +444,9 @@ public:
 		}
 		cout << "END" << endl;
 	}
-	void refine(){
-		ExtendedAnswer tmp;
+	vector<L> refine(){
+		vector<L> res;
+		int k = 0;
 		for(int i = 0  ; i < lines.size() ; ){
 			vector<L> ls;
 			for(int j = 0 ; j < lines.size() ; j++)
@@ -468,13 +471,13 @@ public:
 				if( !f ) break;
 			}
 			if( f ) {
-				erase_line(i);
+				res.push_back(lines[i]);
+				erase_line(lines[i]);
 			}else{
-				tmp.add_line(lines[i]);
 				i++;
 			} 
 		}
-		//*this = tmp;
+		return res;
 	}
 
 };

@@ -265,7 +265,7 @@ public:
 					if( nowTime() > TIME_LIMIT  ) return answer;
 
 					ExtendedAnswer train = answer;
-					train.erase_line(xxx);
+					train.erase_line(answer.lines[xxx]);
 
 					// random_shuffle(pairs.begin(),pairs.end());
 					for(int li = 0 ; li < pairs.size(); li++){
@@ -286,16 +286,22 @@ public:
 							vector<pair<double,L>> cand;
 							double cur = train.overall_score();
 							
-							for(int m = 0 ; m < 20000 / problem.trees.size() ; m++){
+							for(int m = 0 ; m < 2000 / problem.trees.size() ; m++){
 								double A = 1. * xor64() / (unsigned int)(-1);
 								double B = 1. * xor64() / (unsigned int)(-1);
 								P mp = p1 + (p2-p1) * A;
 								complex<double> rot = exp(complex<double>(0,PI*B));
 								P vec = (p1-p2) * P(rot.real(),rot.imag());
 								L l = L(mp,mp+vec);
+								
 								if( l.a != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
-									double loss = cur - train.overall_score(l);
-									cand.emplace_back(loss,l);
+									if( answer.overall_score(l) > 0 ){
+										ExtendedAnswer refined = answer;
+										refined.add_line(l);
+										refined.refine();
+										// double profit = crefined.overall_score();
+										cand.emplace_back( answer.overall_score(l),l);
+									}
 								}
 							}
 							sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
