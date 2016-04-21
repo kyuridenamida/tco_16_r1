@@ -90,14 +90,19 @@ int ccw(P a, P b, P c) {
 
 bool intersectLS(const L &l, const L &s) {
 	return (l.A*s.a.x+l.B*s.a.y+l.C) * (l.A*s.b.x+l.B*s.b.y+l.C) < EPS;
-	return cross(l.b-l.a, s.a-l.a)*cross(l.b-l.a, s.b-l.a) < EPS;
+	//return cross(l.b-l.a, s.a-l.a)*cross(l.b-l.a, s.b-l.a) < EPS;
 }
 
 
 
-inline double distanceLP_check(const L &l, const P &p,const double &r) {
-	return (l.A*p.x+l.B*p.y+l.C)*(l.A*p.x+l.B*p.y+l.C) > r * r * (l.A*l.A+l.B*l.B) + EPS;
+inline double distanceLP_check(const L &l, const P &p,const double &r2) {
+	return (l.A*p.x+l.B*p.y+l.C)*(l.A*p.x+l.B*p.y+l.C) > r2 * (l.A*l.A+l.B*l.B) + EPS;
 }
+
+inline double distanceLP(const L &l, const P &p) {
+	return (l.A*p.x+l.B*p.y+l.C)*(l.A*p.x+l.B*p.y+l.C) / (l.A*l.A+l.B*l.B);
+}
+
 
  
 P crosspoint(const L &l, const L &m) {
@@ -135,41 +140,26 @@ vector<P> convex_hull2(vector<P> ps) {
   ch.resize(k-1);
   return ch;
 }
-vector<P> convex_hull(vector<P> ps) {
-  int n = ps.size(), k = 0;
-  while( ps.size() < 3 )
-	ps.push_back(ps[0] + P(0.00001 * (rand() % 100),0.00001 * (rand() % 100)));
-  sort(ps.begin(), ps.end());
-
-  vector<P> ch(2*n);
-  for (int i = 0; i < n; ch[k++] = ps[i++]) // lower-hull
-    while (k >= 2 && ccw(ch[k-2], ch[k-1], ps[i]) <= 0) --k;
-  for (int i = n-2, t = k+1; i >= 0; ch[k++] = ps[i--]) // upper-hull
-    while (k >= t && ccw(ch[k-2], ch[k-1], ps[i]) <= 0) --k;
-  ch.resize(k-1);
-  return ch;
-}
-
 
 
 //http://d.hatena.ne.jp/TobiasGSmollett/20150220/1424445987
 //お借りした
 struct Circle{
   P p;
-  double r;
+  double r2;
   vector<P> ps;
   Circle(){}
-  Circle(P p, double r) : p(p) , r(r){}
-  Circle(P p, double r,vector<P> ps) : p(p) , r(r), ps(ps) {}
+  Circle(P p, double r2) : p(p) , r2(r2){}
+  Circle(P p, double r2,vector<P> ps) : p(p) , r2(r2), ps(ps) {}
   
   
   bool contain(P a){
-    return norm(a-p) <= r * r;
+    return norm(a-p) <= r2;
   }
   
   static Circle circumCircle(P a,P b){
     P q=(a+b)/2.0;
-	return Circle(q,abs(a-q));
+	return Circle(q,norm(a-q));
   }
   
   static Circle circumscribedCircle(P p, P q, P r){
@@ -179,7 +169,7 @@ struct Circle{
 	double x = a.y*c.y-b.y*c.x;
     double y = b.x*c.x-a.x*c.y;
     res.p = P(x,y)/cross(a,b);
-    return Circle(res.p, abs(p-res.p));
+    return Circle(res.p, norm(p-res.p));
   }
 
   static Circle minEnclosingCircle(vector<P>ps){

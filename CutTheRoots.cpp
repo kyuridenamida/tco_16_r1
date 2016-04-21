@@ -1,7 +1,7 @@
 ﻿#include "classes_for_tco.cpp"
 #include <cstdio>
 
-const double TIME_LIMIT = 9.8;
+const double TIME_LIMIT = 9.85;
 
 namespace MyTimer{
 	unsigned long long int cycle_per_sec = 2500000000;
@@ -80,6 +80,7 @@ public:
 		
 		sort(pairs.begin(),pairs.end());
 		
+		
 		vector<ExtendedAnswer> answers;
 		
 		for(int _ = 0 ; _ < 5 ; _++){
@@ -91,7 +92,7 @@ public:
 				P p1 = problem.trees[i].position[problem.trees[i].root];
 				P p2 = problem.trees[j].position[problem.trees[j].root];
 				bool separated = false;
-				for( auto l : answer.lines ){
+				for( auto &l : answer.lines ){
 					if( GeomUtils::is_separating(l,p1,p2) ){
 						separated = true;
 						break;
@@ -101,6 +102,7 @@ public:
 				if( !separated ){
 					vector<pair<double,L>> cand;
 					double cur = answer.overall_score();
+					
 					for(int m = 0 ; m < 8000 / problem.trees.size() ; m++){
 						double A = 1. * xor64() / (unsigned int)(-1);
 						double B = 1. * xor64() / (unsigned int)(-1);
@@ -116,6 +118,7 @@ public:
 						}
 						// cerr << endl;
 					}
+					
 					// cerr << endl;
 					sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
 						return a.first < b.first;
@@ -143,7 +146,8 @@ public:
 						P p1 = problem.trees[j].position[problem.trees[j].root];
 						P p2 = problem.trees[k].position[problem.trees[k].root];
 						bool separated = false;
-						for( auto l : ls ){
+						for(int li = 0 ; li < ls.size() ; li++){
+							const L &l = ls[li];
 							if( GeomUtils::is_separating(l,p1,p2) ){
 								separated = true;
 								break;
@@ -194,18 +198,17 @@ public:
 				pairs.push_back({norm(p1-p2),{i,j}});
 			}
 		}
-
 		sort(pairs.begin(),pairs.end());
 		
 		ExtendedAnswer answer(&problem_processed);
-		
 		for(int li = 0 ; li < pairs.size(); li++){
 			int i = pairs[li].second.first;
 			int j = pairs[li].second.second;
 			P p1 = problem_processed.trees[i].position[problem_processed.trees[i].root];
 			P p2 = problem_processed.trees[j].position[problem_processed.trees[j].root];
 			bool separated = false;
-			for( auto l : answer.lines ){
+			for(int li = 0 ; li < answer.lines.size() ; li++){
+				const L &l = answer.lines[li];
 				if( GeomUtils::is_separating(l,p1,p2) ){
 					separated = true;
 					break;
@@ -240,96 +243,82 @@ public:
 				}
 			}
 		}
-
 		
-
 		// return answer;
-		answer.refine();
+		answer = answer.refined_answer();
 		ExtendedAnswer tmp(&problem);
 		for( auto &l : answer.lines )
 			tmp.add_line(l);
 		answer = tmp;
 
-		double tot = 0;
 		
-		while ( nowTime() < TIME_LIMIT){
-			int failed = 0;
-			while( nowTime() < TIME_LIMIT  ){
-				double start = nowTime();
-				if( problem.NR < 60000  ){
-					random_shuffle(pairs.begin(),pairs.end());
-				}
-				random_shuffle(answer.lines.begin(),answer.lines.end());
+		while( nowTime() < TIME_LIMIT  ){
+			double start = nowTime();
+			// if( problem.NR < 60000  ){
+				// random_shuffle(pairs.begin(),pairs.end());
+			// }
+			random_shuffle(answer.lines.begin(),answer.lines.end());
+			
+			for(int xxx = 0 ; xxx <  answer.lines.size() ; xxx++){
+				if( nowTime() > TIME_LIMIT  ) return answer;
 				
-				for(int xxx = 0 ; xxx <  answer.lines.size() ; xxx++){
-					if( nowTime() > TIME_LIMIT  ) return answer;
-
-					ExtendedAnswer train = answer;
-					train.erase_line(answer.lines[xxx]);
-
-					// random_shuffle(pairs.begin(),pairs.end());
-					for(int li = 0 ; li < pairs.size(); li++){
-						int i = pairs[li].second.first;
-						int j = pairs[li].second.second;
-						P p1 = problem.trees[i].position[problem.trees[i].root];
-						P p2 = problem.trees[j].position[problem.trees[j].root];
-						bool separated = false;
-
-						for( auto l : train.lines ){
-							if( GeomUtils::is_separating(l,p1,p2) ){
-								separated = true;
-								break;
-							}
+				ExtendedAnswer train(&problem);
+				for(int i = 0 ; i < answer.lines.size() ; i++){
+					if( xxx != i  ) train.add_line(answer.lines[i]);
+				}
+				for(int li = 0 ; li < pairs.size(); li++){
+					int i = pairs[li].second.first;
+					int j = pairs[li].second.second;
+					P p1 = problem.trees[i].position[problem.trees[i].root];
+					P p2 = problem.trees[j].position[problem.trees[j].root];
+					bool separated = false;
+					for( auto &l : train.lines ){
+						if( GeomUtils::is_separating(l,p1,p2) ){
+							separated = true;
+							break;
 						}
-						
-						if( !separated ){
-							vector<pair<double,L>> cand;
-							double cur = train.overall_score();
-							
-							for(int m = 0 ; m < 2000 / problem.trees.size() ; m++){
-								double A = 1. * xor64() / (unsigned int)(-1);
-								double B = 1. * xor64() / (unsigned int)(-1);
-								P mp = p1 + (p2-p1) * A;
-								complex<double> rot = exp(complex<double>(0,PI*B));
-								P vec = (p1-p2) * P(rot.real(),rot.imag());
-								L l = L(mp,mp+vec);
-								
-								if( l.a != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
-									if( answer.overall_score(l) > 0 ){
-										ExtendedAnswer refined = answer;
-										refined.add_line(l);
-										refined.refine();
-										// double profit = crefined.overall_score();
-										cand.emplace_back( answer.overall_score(l),l);
-									}
-								}
-							}
-							sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
-								return a.first < b.first;
-							});
-							for(int i = 0 ; i < cand.size() ; i++){
-								L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
-								if( fix_l.a != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
-										train.add_line(fix_l);
-										break;
-								}
-							}
-						}
-					}
-					train.refine();
-					if( train.overall_score() > answer.overall_score() ){
-						cerr << train.overall_score() - answer.overall_score() << "|" << train.overall_score() << "|" << xxx << endl;
-						answer = train;
-						// if( configuration.visualize_mode ) answer.draw_sol();
-						break;
-					}else{
-						// failed = max(failed,xxx+1);
 					}
 					
+					if( !separated ){
+						vector<pair<double,L>> cand;
+						double cur = train.overall_score();
+						
+						for(int m = 0 ; m < 20000 / problem.trees.size() ; m++){
+							double A = 1. * xor64() / (unsigned int)(-1);
+							
+							double B = 1. * xor64() / (unsigned int)(-1);
+							P mp = p1 + (p2-p1) * A;
+							complex<double> rot = exp(complex<double>(0,PI*B));
+							P vec = (p1-p2) * P(rot.real(),rot.imag());
+							L l = L(mp,mp+vec);
+							if( l.a != P(-1,-1) and GeomUtils::is_separating(l,p1,p2) ){
+								double loss = cur - train.overall_score(l);
+								cand.emplace_back(loss,l);
+							}
+						}
+						sort(cand.begin(),cand.end(),[&](const pair<double,L> &a,const pair<double,L> &b){
+							return a.first < b.first;
+						});
+						for(int i = 0 ; i < cand.size() ; i++){
+							L fix_l = GeomUtils::convert_to_integer_line(cand[i].second,p1,p2);
+							if( fix_l.a != null_point and GeomUtils::is_separating(fix_l,p1,p2) ){
+									train.add_line(fix_l);
+									break;
+							}
+						}
+					}
 				}
-				cerr << nowTime() - start << endl;
-				
+				train = train.refined_answer();
+				if( train.overall_score() > answer.overall_score()  ){
+					//cerr << train.overall_score() - answer.overall_score() << "|" << train.overall_score() << "|" << xxx << endl;
+					answer = train;
+					// if( configuration.visualize_mode ) answer.draw_sol();
+					break;
+				}
+						
 			}
+			//cerr << nowTime() - start << endl;
+			
 		}
 		return answer;
 	}

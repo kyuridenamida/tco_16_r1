@@ -101,7 +101,6 @@ public:
 	vector<P> position;
 	int root;
 	vector<Circle> mec;
-	vector<P> convex_polygon;
 	vector<vector<int>> child;
 	vector<vector<L>> child_line;
 	vector<int> parent;
@@ -109,10 +108,7 @@ public:
 	vector<double> length_between_parent;
 	vector<double> tot_sum_of_tree;
 	Tree(int id,int n,const vector<Edge> es,vector<P> position,int root) : id(id), n(n), es(es), position(position), root(root){
-		//convex_polygon = convex_hull(position);
-		
-		
-		
+
 		parent = vector<int>(n,-1);
 		depth = vector<int>(n);
 		child = vector<vector<int>>(n);
@@ -152,7 +148,8 @@ public:
 		vector<P> ps;
 		ps.push_back(position[x]);
 		
-		for( auto c : child[x] ){
+		for( int i = 0 ; i < child[x].size() ; i++){
+			const int &c = child[x][i];
 			vector<P> X = init_dfs(c);
 			tot_sum_of_tree[x] += tot_sum_of_tree[c];// + length_between_parent[c];
 			ps.insert(ps.end(),X.begin(),X.end());
@@ -259,7 +256,6 @@ public:
 };
 
 
-
 class ExtendedAnswer : public Answer{
 public:
 	Problem* problem;
@@ -284,23 +280,28 @@ public:
 	}
 	
 	vector<double> MEMO_score_of_tree;
-
+	vector< vector<double> > current_weight;
+	vector< vector<bool> > already_cut;
+	
 	double score_of_tree(const Tree &tree,const L &l = null_line,bool reflesh=true){
-		if( l != null_line ){
-			return inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
+		if( l == null_line )
+			return MEMO_score_of_tree[tree.id];
+		double res = inner_dfs_score_of_tree(tree.root,tree,l,reflesh);
+		if( reflesh ){
+			MEMO_score_of_tree[tree.id] = res;
 		}
-		return current_weight[tree.id][tree.root];
+		return res;
 	}
 
 
 	double MEMO_overall_score;
-	
 	double overall_score(const L &l = null_line,bool reflesh=false){
-		if( l == null_line and MEMO_overall_score != -1 )
+		if( l == null_line )
 			return MEMO_overall_score;
 
 		double sum = 0;
-		for( const auto &tree : problem->trees ){
+		for(int i = 0 ; i < problem->trees.size() ; i++){
+			const Tree &tree =  problem->trees[i];
 			sum += score_of_tree(tree,l,reflesh);
 		}
 		if( reflesh ){
@@ -309,9 +310,6 @@ public:
 		return sum;
 	}
 
-	vector< vector<double> > current_weight;
-	vector< vector<bool> > already_cut;
-	
 	double inner_init_dfs_score_of_tree(int x,const Tree &tree){
 		double sum = 0;
 		for( auto c : tree.child[x] ){
@@ -322,7 +320,7 @@ public:
 	
 	double inner_dfs_score_of_tree(int x,const Tree &tree,const L &line,bool reflesh){
 		
-		if( distanceLP_check(line,tree.mec[x].p,tree.mec[x].r) ){
+		if( distanceLP_check(line,tree.mec[x].p,tree.mec[x].r2) ){
 			return current_weight[tree.id][x];
 		}
 		if( already_cut[tree.id][x] ) return current_weight[tree.id][x];
@@ -338,7 +336,7 @@ public:
 				double cut_dist = min( current_weight[tree.id][c], abs(cp-tree.position[x]) );
 				if( reflesh ){
 					already_cut[tree.id][c] = true;
-					current_weight[tree.id][c] = cut_dist ; // 枝がさらにカットされたとき対策
+					current_weight[tree.id][c] = cut_dist ; // æãããã«ã«ãããããã¨ãå¯¾ç­
 				}
 				sum += cut_dist;
 			}else{
@@ -352,75 +350,12 @@ public:
 		}
 		return res;
 	}
-	
-	void erase_line(const L &line){
-		int lineid = find(lines.begin(),lines.end(),line) - lines.begin();
-		for(int i = 0 ; i < problem->trees.size() ; i++){
-			if( inner_erase_line(0,problem->trees[i],lineid) ){
-				for(int j = 0 ; j < lines.size() ; j++){
-					if( j != lineid ){
-						inner_dfs_score_of_tree(0,problem->trees[i],lines[j],true);
-					}
-				}
-			}
-		}
-		lines.erase(lines.begin()+lineid);
-		MEMO_overall_score = -1;
-		//MEMO_overall_score = -1; //全体スコア一回リセット
-	}
-	
-	void reset_cut(int x,const Tree &tree){
-		already_cut[tree.id][x] = false;
-		current_weight[tree.id][x] = tree.tot_sum_of_tree[x];
-		for(int i = 0 ; i < tree.child[x].size() ; i++){
-			const int &c = tree.child[x][i];
-			reset_cut(c,tree);
-		}
-	}
-	bool inner_erase_line(int x,const Tree &tree,int lineid){
-		
-		if( distanceLP_check(lines[lineid],tree.mec[x].p,tree.mec[x].r) ) return false;		
-		if( already_cut[tree.id][x] ) return false;
-		
-		bool deleted = false;
-		double sum = 0;
-		for(int i = 0 ; i < tree.child[x].size() ; i++){
-			const int &c = tree.child[x][i];
-			const L &cline = tree.child_line[x][i];
-			
-			if( intersectLS(lines[lineid],cline) ){
-				//部分木を全復元
-				reset_cut(c,tree);
-				deleted = true;
-			}else{
-				deleted |= inner_erase_line(c,tree,lineid);			
-			}
-			sum += current_weight[tree.id][c];
-		}
-		current_weight[tree.id][x] = sum + tree.length_between_parent[x];
-		
-		return deleted;
-	}
-	
-	vector<double> get_ratio(){
-		vector<double> res;
-		for( const auto &tree : problem->trees ){
-			res.push_back(score_of_tree(tree) / tree.tot_sum_of_tree[0]);
-			//cerr << tree.id << "|" << score_of_tree(tree) / tree.tot_sum_of_tree[0] << "|" << score_of_tree(tree)  << "/" <<  tree.tot_sum_of_tree[0] << endl;
-		}
-		//cerr << "--------" << endl;
-		return res;
-	}
 
 	void inner_draw_tree(int x,bool dead,const Tree &tree,const RGB &alive){
 		if( already_cut[tree.id][x] ){
 			dead = true;	
 			return;
 		}
-		
-		
-		
-		
 		
 		for( auto c : tree.child[x] ){
 			if( !already_cut[tree.id][c] ){ 
@@ -444,40 +379,41 @@ public:
 		}
 		cout << "END" << endl;
 	}
-	vector<L> refine(){
-		vector<L> res;
-		int k = 0;
-		for(int i = 0  ; i < lines.size() ; ){
-			vector<L> ls;
-			for(int j = 0 ; j < lines.size() ; j++)
-				if( i != j ) ls.push_back(lines[j]);
-			bool f = true;
-			for(int j = 0 ; j < problem->trees.size() ; j++){
-				for(int k = j+1 ; k < problem->trees.size() ; k++){
-					P p1 = problem->trees[j].position[problem->trees[j].root];
-					P p2 = problem->trees[k].position[problem->trees[k].root];
-					bool separated = false;
-					for( auto &l : ls ){
-						if( GeomUtils::is_separating(l,p1,p2) ){
-							separated = true;
+	ExtendedAnswer refined_answer(){
+		for(int i = 0 ; i < lines.size() ; ){
+				vector<L> ls;
+				for(int j = 0 ; j < lines.size() ; j++)
+					if( i != j ) ls.push_back(lines[j]);
+				bool f = true;
+				for(int j = 0 ; j < problem->trees.size() ; j++){
+					for(int k = j+1 ; k < problem->trees.size() ; k++){
+						P p1 = problem->trees[j].position[problem->trees[j].root];
+						P p2 = problem->trees[k].position[problem->trees[k].root];
+						bool separated = false;
+						for( auto l : ls ){
+							if( GeomUtils::is_separating(l,p1,p2) ){
+								separated = true;
+								break;
+							}
+						}
+						if( !separated ) {
+							f = false;
 							break;
 						}
 					}
-					if( !separated ) {
-						f = false;
-						break;
-					}
+					if( !f ) break;
 				}
-				if( !f ) break;
+				if( f ) {
+					lines.erase(lines.begin()+i);
+					
+					//cerr << "OK" << endl;
+				}else i++;
 			}
-			if( f ) {
-				res.push_back(lines[i]);
-				erase_line(lines[i]);
-			}else{
-				i++;
-			} 
-		}
-		return res;
+			ExtendedAnswer hogehoge(problem);
+			for(int i = 0 ; i < lines.size() ; i++){
+				hogehoge.add_line(lines[i]);
+			}
+			return hogehoge;
 	}
 
 };
